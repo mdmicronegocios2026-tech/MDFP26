@@ -50,6 +50,7 @@
             <button class="nav-btn" data-view="estudiantes">Estudiantes</button>
             <button class="nav-btn" data-view="asignaciones">Asignaciones</button>
             <button class="nav-btn" data-view="exportar">Exportar</button>
+            <button class="nav-btn" data-view="usuarios">Usuarios</button>
         </nav>
 
         <!-- CONTENIDO PRINCIPAL -->
@@ -74,13 +75,6 @@
                         <div class="stat-value" id="stat-completadas">0</div>
                         <div class="stat-label">Completadas</div>
                     </div>
-                </div>
-                <div id="sync-section" class="sync-section" style="display:none">
-                    <div class="sync-header">
-                        <h3>Gestión de Usuarios</h3>
-                        <p>Usuarios registrados en el sistema y sus roles</p>
-                    </div>
-                    <div id="sync-users-container"></div>
                 </div>
                 <div class="table-container">
                     <div class="table-header">
@@ -210,6 +204,11 @@
                         Descargar Respuestas Crudas (Formadores)
                     </button>
                 </div>
+            </section>
+
+            <!-- USUARIOS -->
+            <section id="view-usuarios" class="view">
+                <!-- Contenido generado dinámicamente por renderUsuariosSync() -->
             </section>
         </main>
     </div>

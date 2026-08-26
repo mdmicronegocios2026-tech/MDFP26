@@ -198,10 +198,11 @@ function showMainScreen() {
     
     const nav = document.getElementById('main-nav');
     if (userProfile?.rol === 'evaluador') {
-        nav.querySelectorAll('[data-view="estudiantes"], [data-view="asignaciones"], [data-view="dashboard"]').forEach(el => el.style.display = 'none');
+        nav.querySelectorAll('[data-view="estudiantes"], [data-view="asignaciones"], [data-view="dashboard"], [data-view="usuarios"], [data-view="exportar"]').forEach(el => el.style.display = 'none');
         switchView('evaluar');
     } else {
         nav.querySelectorAll('.nav-btn').forEach(el => el.style.display = 'block');
+        nav.querySelector('[data-view="evaluar"]').style.display = 'none';
         switchView('dashboard');
     }
     
@@ -221,6 +222,7 @@ function switchView(view) {
     if (view === 'asignaciones') renderAsignaciones();
     if (view === 'estudiantes') renderStudentsTable();
     if (view === 'evaluar') showEvalList();
+    if (view === 'usuarios') renderUsuariosSync();
 }
 
 // ============================================
@@ -284,48 +286,50 @@ function updateDashboard() {
     document.getElementById('stat-completadas').textContent = evaluaciones.filter(e => e.estado === 'completada').length;
     
     renderDashboardTable();
-    
-    if (userProfile?.rol === 'admin') {
-        document.getElementById('sync-section').style.display = 'block';
-        renderUsuariosSync();
-    }
 }
 
 function renderUsuariosSync() {
-    const container = document.getElementById('sync-users-container');
+    const container = document.getElementById('view-usuarios');
     if (!container) return;
     
     const allUsers = allUsuarios.length > 0 ? [...allUsuarios] : [];
     
     container.innerHTML = `
-        <div style="overflow-x:auto; margin-top:1rem;">
-            <table class="sync-table">
-                <thead>
-                    <tr>
-                        <th>Email</th>
-                        <th>Nombre</th>
-                        <th>Rol Actual</th>
-                        <th>Cambiar Rol</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${allUsers.map(u => `
+        <h2>Gestión de Usuarios</h2>
+        <div class="table-container">
+            <div class="table-header">
+                <h3>Usuarios del Sistema</h3>
+                <p style="color:#666;font-size:0.85rem">Administra los roles de cada usuario registrado</p>
+            </div>
+            <div style="overflow-x:auto; padding: 0 1rem 1rem;">
+                <table class="sync-table">
+                    <thead>
                         <tr>
-                            <td>${u.email}</td>
-                            <td>${u.nombre_completo}</td>
-                            <td>
-                                <span class="status-badge ${u.rol === 'admin' ? 'status-admin' : 'status-eval'}">${u.rol === 'admin' ? 'Admin' : 'Evaluador'}</span>
-                            </td>
-                            <td>
-                                <select class="sync-role-select" data-user-id="${u.id}" onchange="cambiarRolUsuario('${u.id}', this.value)">
-                                    <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Admin</option>
-                                    <option value="evaluador" ${u.rol === 'evaluador' ? 'selected' : ''}>Evaluador</option>
-                                </select>
-                            </td>
+                            <th>Email</th>
+                            <th>Nombre</th>
+                            <th>Rol Actual</th>
+                            <th>Cambiar Rol</th>
                         </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        ${allUsers.map(u => `
+                            <tr>
+                                <td>${u.email}</td>
+                                <td>${u.nombre_completo}</td>
+                                <td>
+                                    <span class="status-badge ${u.rol === 'admin' ? 'status-admin' : 'status-eval'}">${u.rol === 'admin' ? 'Admin' : 'Evaluador'}</span>
+                                </td>
+                                <td>
+                                    <select class="sync-role-select" data-user-id="${u.id}" onchange="cambiarRolUsuario('${u.id}', this.value)">
+                                        <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Admin</option>
+                                        <option value="evaluador" ${u.rol === 'evaluador' ? 'selected' : ''}>Evaluador</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
         </div>
         <div style="margin-top:1rem; padding:0.75rem; background:#e3f2fd; border-radius:6px; font-size:0.85rem; color:#1565c0;">
             <strong>Nota:</strong> Si un usuario se crea nuevo en Auth pero no aparece aquí, simplemente pídele que inicie sesión una vez. El sistema creará su perfil automáticamente.
