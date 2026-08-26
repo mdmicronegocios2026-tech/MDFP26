@@ -396,8 +396,15 @@ function renderDashboardTable() {
 // ============================================
 // FUNCIONES DE ADMIN - GESTIÓN DE EVALUACIONES
 // ============================================
+function cerrarModal() {
+    const modal = document.getElementById('modal-detalle');
+    if (modal) modal.remove();
+}
+
 function verDetalleEstudiante(estudianteId) {
     const estudiante = estudiantes.find(e => e.id === estudianteId);
+    if (!estudiante) return;
+    
     const evasEst = evaluaciones.filter(e => e.estudiante_id === estudianteId);
     
     let html = `<h3>${estudiante.nombre_completo}</h3>`;
@@ -444,13 +451,17 @@ function verDetalleEstudiante(estudianteId) {
         <div class="nota-value">${promedio ? promedio.toFixed(2) : 'Pendiente'}</div>
     </div>`;
     
+    cerrarModal();
+    
     const modal = document.createElement('div');
+    modal.id = 'modal-detalle';
     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000';
+    modal.addEventListener('click', function(e) { if (e.target === modal) cerrarModal(); });
     modal.innerHTML = `
         <div style="background:white;padding:2rem;border-radius:12px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto">
             ${html}
             <br>
-            <button class="btn btn-secondary" onclick="this.closest('div[style]').remove()" style="width:auto;padding:0.5rem 1rem">Cerrar</button>
+            <button class="btn btn-secondary" onclick="cerrarModal()" style="width:auto;padding:0.5rem 1rem">Cerrar</button>
         </div>
     `;
     document.body.appendChild(modal);
@@ -461,15 +472,15 @@ function eliminarEvaluacion(evaluacionId) {
     
     if (DEMO_MODE) {
         evaluaciones = evaluaciones.filter(e => e.id !== evaluacionId);
+        cerrarModal();
         alert('Evaluación eliminada');
-        document.querySelector('div[style*="position:fixed"]').remove();
         updateDashboard();
         return;
     }
     
     supabaseClient.from('evaluaciones').delete().eq('id', evaluacionId).then(() => {
+        cerrarModal();
         alert('Evaluación eliminada');
-        document.querySelector('div[style*="position:fixed"]').remove();
         loadCursoData().then(() => updateDashboard());
     });
 }
@@ -481,12 +492,14 @@ async function handleAddStudent(e) {
     e.preventDefault();
     const cedula = document.getElementById('new-cedula').value;
     const nombre = document.getElementById('new-nombre').value;
+    const correo = document.getElementById('new-correo').value.trim();
     
     if (DEMO_MODE) {
         const newId = String(estudiantes.length + 1);
-        estudiantes.push({ id: newId, cedula, nombre_completo: nombre });
+        estudiantes.push({ id: newId, cedula, nombre_completo: nombre, correo });
         document.getElementById('new-cedula').value = '';
         document.getElementById('new-nombre').value = '';
+        document.getElementById('new-correo').value = '';
         renderStudentsTable();
         updateDashboard();
         alert('Estudiante agregado');
@@ -498,15 +511,19 @@ async function handleAddStudent(e) {
         return;
     }
     
+    const dataInsert = { cedula, nombre_completo: nombre, curso_id: cursoActual.id };
+    if (correo) dataInsert.correo = correo;
+    
     const { error } = await supabaseClient
         .from('estudiantes')
-        .insert({ cedula, nombre_completo: nombre, curso_id: cursoActual.id });
+        .insert(dataInsert);
     
     if (error) {
         alert('Error: ' + error.message);
     } else {
         document.getElementById('new-cedula').value = '';
         document.getElementById('new-nombre').value = '';
+        document.getElementById('new-correo').value = '';
         await loadCursoData();
         renderStudentsTable();
         updateDashboard();
@@ -522,6 +539,7 @@ function renderStudentsTable() {
         tr.innerHTML = `
             <td>${est.cedula}</td>
             <td>${est.nombre_completo}</td>
+            <td>${est.correo || '<span style="color:#999">-</span>'}</td>
             <td><button class="btn btn-danger" style="width:auto;padding:0.25rem 0.5rem;font-size:0.8rem" onclick="deleteStudent('${est.id}')">Eliminar Todo</button></td>
         `;
         tbody.appendChild(tr);
@@ -626,7 +644,8 @@ function renderCriterios() {
         card.className = 'criterion-card';
         
         const valorActual = evalValues[criterio.key];
-        const descripcionActual = valorActual !== undefined ? criterio.niveles[valorActual] : '';
+        const nivelEntero = valorActual !== undefined ? Math.round(Math.min(5, Math.max(0, valorActual))) : null;
+        const descripcionActual = nivelEntero !== null ? criterio.niveles[nivelEntero] : '';
         
         card.innerHTML = `
             <div class="criterion-header">
@@ -635,7 +654,7 @@ function renderCriterios() {
             </div>
             <div class="level-selector" id="levels-${criterio.key}">
                 ${[5,4,3,2,1,0].map(valor => `
-                    <button class="level-btn ${valorActual === valor ? 'selected' : ''}" 
+                    <button class="level-btn ${nivelEntero === valor ? 'selected' : ''}" 
                         data-key="${criterio.key}" 
                         data-value="${valor}" 
                         onclick="selectLevel('${criterio.key}', ${valor})">
@@ -643,6 +662,16 @@ function renderCriterios() {
                         <div class="level-name">${getNombreNivel(valor)}</div>
                     </button>
                 `).join('')}
+            </div>
+            <div class="decimal-input-row">
+                <label>O puntaje decimal:</label>
+                <input type="number" class="decimal-score-input" 
+                    id="decimal-${criterio.key}"
+                    min="0" max="5" step="0.1" 
+                    value="${valorActual !== undefined ? valorActual : ''}"
+                    placeholder="0.0 - 5.0"
+                    onchange="updateDecimalScore('${criterio.key}', this.value)"
+                    oninput="updateDecimalScore('${criterio.key}', this.value)">
             </div>
             <div class="rubric-description" id="desc-${criterio.key}" style="
                 margin-top: 1rem;
@@ -654,7 +683,7 @@ function renderCriterios() {
                 color: #333;
                 min-height: 60px;
             ">
-                <strong>${valorActual !== undefined ? 'Descripción del nivel ' + valorActual + ':' : 'Seleccione un nivel para ver la descripción:'}</strong>
+                <strong>${valorActual !== undefined ? 'Nivel ' + nivelEntero + ' - ' + getNombreNivel(nivelEntero) + ':' : 'Seleccione un nivel para ver la descripción:'}</strong>
                 <p style="margin-top: 0.5rem; line-height: 1.5;">${descripcionActual || 'Haga clic en uno de los niveles arriba para ver la descripción de la rúbrica.'}</p>
             </div>
         `;
@@ -681,19 +710,60 @@ function selectLevel(key, value) {
         btn.classList.toggle('selected', parseInt(btn.dataset.value) === value);
     });
     
-    const criterio = CRITERIOS.find(c => c.key === key);
-    const descDiv = document.getElementById(`desc-${key}`);
-    if (criterio && descDiv) {
-        const descripcion = criterio.niveles[value];
-        descDiv.style.background = '#e3f2fd';
-        descDiv.style.borderLeftColor = '#1976d2';
-        descDiv.innerHTML = `
-            <strong>Descripción del nivel ${value}:</strong>
-            <p style="margin-top: 0.5rem; line-height: 1.5;">${descripcion}</p>
-        `;
+    const decimalInput = document.getElementById(`decimal-${key}`);
+    if (decimalInput) decimalInput.value = value;
+    
+    updateRubricaDescription(key, value);
+    updateNotaCalculada();
+}
+
+function updateDecimalScore(key, value) {
+    let num = parseFloat(value);
+    if (isNaN(num)) {
+        delete evalValues[key];
+        const decimalInput = document.getElementById(`decimal-${key}`);
+        if (decimalInput) decimalInput.value = '';
+        document.querySelectorAll(`[data-key="${key}"]`).forEach(btn => btn.classList.remove('selected'));
+        updateRubricaDescription(key, null);
+        updateNotaCalculada();
+        return;
     }
     
+    num = Math.min(5, Math.max(0, num));
+    evalValues[key] = num;
+    
+    const nivelEntero = Math.round(num);
+    document.querySelectorAll(`[data-key="${key}"]`).forEach(btn => {
+        btn.classList.toggle('selected', parseInt(btn.dataset.value) === nivelEntero);
+    });
+    
+    updateRubricaDescription(key, num);
     updateNotaCalculada();
+}
+
+function updateRubricaDescription(key, value) {
+    const criterio = CRITERIOS.find(c => c.key === key);
+    const descDiv = document.getElementById(`desc-${key}`);
+    if (!criterio || !descDiv) return;
+    
+    if (value === undefined || value === null) {
+        descDiv.style.background = '#f5f5f5';
+        descDiv.style.borderLeftColor = '#bdbdbd';
+        descDiv.innerHTML = `
+            <strong>Seleccione un nivel para ver la descripción:</strong>
+            <p style="margin-top: 0.5rem; line-height: 1.5;">Haga clic en uno de los niveles arriba para ver la descripción de la rúbrica.</p>
+        `;
+        return;
+    }
+    
+    const nivelEntero = Math.round(Math.min(5, Math.max(0, value)));
+    const descripcion = criterio.niveles[nivelEntero];
+    descDiv.style.background = '#e3f2fd';
+    descDiv.style.borderLeftColor = '#1976d2';
+    descDiv.innerHTML = `
+        <strong>Nivel ${nivelEntero} - ${getNombreNivel(nivelEntero)}:</strong>
+        <p style="margin-top: 0.5rem; line-height: 1.5;">${descripcion}</p>
+    `;
 }
 
 function updateNotaCalculada() {
@@ -790,7 +860,7 @@ function renderAsignaciones() {
         <div class="import-section">
             <div class="import-header">
                 <h3>Importar Asignaciones desde Excel</h3>
-                <p>Cargue un archivo .xlsx con las columnas: <strong>CÉDULA, NOMBRE ESTUDIANTE, FORMADOR 1, FORMADOR 2</strong></p>
+                <p>Cargue un archivo .xlsx con las columnas: <strong>CÉDULA, NOMBRE ESTUDIANTE, FORMADOR 1, FORMADOR 2, CORREO (opcional)</strong></p>
             </div>
             <input type="file" id="import-asignaciones-file" accept=".xlsx,.xls" style="display:none" onchange="importarAsignacionesExcel(this)">
             <button class="btn btn-import" onclick="document.getElementById('import-asignaciones-file').click()">
@@ -1049,6 +1119,7 @@ function procesarArchivoAsignaciones(rows) {
         const nombre = String(row[1] || '').trim();
         const formador1 = String(row[2] || '').trim();
         const formador2 = row.length > 3 ? String(row[3] || '').trim() : '';
+        const correo = row.length > 4 ? String(row[4] || '').trim() : '';
         
         if (!cedula || !nombre || !formador1) continue;
         
@@ -1064,6 +1135,7 @@ function procesarArchivoAsignaciones(rows) {
         importPreviewData.push({
             cedula,
             nombre,
+            correo,
             formador1,
             formador2,
             estudianteExistente: !!estudianteExistente,
@@ -1106,6 +1178,7 @@ function renderPreviewImportacion() {
                         <th>#</th>
                         <th>Cédula</th>
                         <th>Nombre Estudiante</th>
+                        <th>Correo</th>
                         <th>Formador 1</th>
                         <th>Formador 2</th>
                         <th>Estado</th>
@@ -1127,6 +1200,7 @@ function renderPreviewImportacion() {
                                 <td>${i + 1}</td>
                                 <td>${r.cedula}</td>
                                 <td>${r.nombre}</td>
+                                <td>${r.correo || '<span style="color:#999">-</span>'}</td>
                                 <td>${r.ev1 ? r.ev1.nombre_completo : '<em style="color:#c62828">' + r.formador1 + '</em>'}</td>
                                 <td>${r.ev2 ? r.ev2.nombre_completo : (r.formador2 ? '<em style="color:#c62828">' + r.formador2 + '</em>' : '-')}</td>
                                 <td>${statusHtml}</td>
@@ -1164,12 +1238,14 @@ async function ejecutarImportacion() {
         if (!estId) {
             if (DEMO_MODE) {
                 estId = String(estudiantes.length + 1);
-                estudiantes.push({ id: estId, cedula: reg.cedula, nombre_completo: reg.nombre });
+                estudiantes.push({ id: estId, cedula: reg.cedula, nombre_completo: reg.nombre, correo: reg.correo || '' });
                 creados++;
             } else {
+                const dataEst = { cedula: reg.cedula, nombre_completo: reg.nombre, curso_id: cursoActual.id };
+                if (reg.correo) dataEst.correo = reg.correo;
                 const { data: nuevoEst, error: errEst } = await supabaseClient
                     .from('estudiantes')
-                    .insert({ cedula: reg.cedula, nombre_completo: reg.nombre, curso_id: cursoActual.id })
+                    .insert(dataEst)
                     .select()
                     .single();
                 if (errEst) continue;
@@ -1784,4 +1860,163 @@ async function exportarRespuestasCrudas() {
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, 'Respuestas Formadores Fondo Progresa 2026.xlsx');
     alert('Archivo de respuestas crudas exportado exitosamente');
+}
+
+// ============================================
+// EXPORTACIÓN EXCEL CON CORREOS
+// ============================================
+async function exportarExcelConCorreos() {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('EVALUACIÓN PLAN DE NEGOCIOS');
+    
+    ws.getColumn(1).width = 13.73;
+    ws.getColumn(2).width = 47.18;
+    ws.getColumn(3).width = 35;
+    ws.getColumn(4).width = 18;
+    ws.getColumn(5).width = 141.27;
+    
+    ws.getRow(1).height = 45;
+    ws.mergeCells('A1:E1');
+    const bannerCell = ws.getCell('A1');
+    bannerCell.value = '    FONDO PROGRESA    |    ALCALDÍA DE ZIPAQUIRÁ    |    SEC. DESARROLLO ECONÓMICO Y TURISMO    |    UNIMINUTO    |    E.P.E.    ';
+    bannerCell.font = { bold: true, size: 12, color: { argb: COLORES.textoBanner } };
+    bannerCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    bannerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondoBanner } };
+    
+    ws.getRow(2).height = 25;
+    ws.mergeCells('A2:E2');
+    const subtituloCell = ws.getCell('A2');
+    subtituloCell.value = 'Educación de calidad al alcance de todos | Corporación Universitaria Minuto de Dios';
+    subtituloCell.font = { italic: true, size: 10, color: { argb: COLORES.textoBanner } };
+    subtituloCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    subtituloCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondoSubtitulo } };
+    
+    ws.getRow(3).height = 5;
+    ws.mergeCells('A3:E3');
+    ws.getCell('A3').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC107' } };
+    
+    ws.getRow(4).height = 15;
+    
+    ws.getRow(5).height = 40;
+    ws.mergeCells('A5:E5');
+    const titleCell = ws.getCell('A5');
+    titleCell.value = 'FICHA GENERAL DE CALIFICACIÓN\nCOMENTARIO GLOBAL';
+    titleCell.font = { bold: true, size: 14, color: { argb: COLORES.textoBanner } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondoSubtitulo } };
+    
+    ws.getRow(6).height = 10;
+    
+    ws.mergeCells('A7:A8');
+    ws.mergeCells('B7:B8');
+    ws.mergeCells('C7:C8');
+    ws.mergeCells('D7:D8');
+    ws.mergeCells('E7:E8');
+    
+    const headers = [
+        { cell: 'A7', value: 'CÉDULA' },
+        { cell: 'B7', value: 'NOMBRES Y APELLIDOS EMPRENDEDOR' },
+        { cell: 'C7', value: 'CORREO ELECTRÓNICO' },
+        { cell: 'D7', value: 'NOTA PROMEDIO REVISIÓN PLAN DE NEGOCIOS' },
+        { cell: 'E7', value: 'COMENTARIO GLOBAL (A DESTACAR, A MEJORAR Y VIABILIDAD DE LA INVERSIÓN)' }
+    ];
+    
+    headers.forEach(h => {
+        const cell = ws.getCell(h.cell);
+        cell.value = h.value;
+        cell.font = { bold: true, size: 11, color: { argb: COLORES.textoBanner } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondoBanner } };
+        cell.border = {
+            top: { style: 'medium', color: { argb: COLORES.fondoBanner } },
+            bottom: { style: 'medium', color: { argb: COLORES.fondoBanner } },
+            left: { style: 'thin', color: { argb: COLORES.textoBanner } },
+            right: { style: 'thin', color: { argb: COLORES.textoBanner } }
+        };
+    });
+    ws.getRow(7).height = 25;
+    ws.getRow(8).height = 25;
+    
+    let currentRow = 9;
+    estudiantes.forEach((est, index) => {
+        const evasEst = evaluaciones.filter(e => e.estudiante_id === est.id && e.estado === 'completada');
+        const promedio = evasEst.length > 0 
+            ? evasEst.reduce((sum, e) => sum + (e.nota_individual || 0), 0) / evasEst.length 
+            : null;
+        const comentarios = evasEst.map(e => {
+            const ev = evaluadores.find(u => u.id === e.evaluador_id);
+            const prefijo = ev ? ev.nombre_completo.split(' ')[0].toUpperCase() : 'EV';
+            return `${prefijo}: ${e.comentario_global || ''}`;
+        }).join('\n\n');
+        
+        const cedulaCell = ws.getCell(`A${currentRow}`);
+        cedulaCell.value = est.cedula;
+        cedulaCell.alignment = { vertical: 'top', horizontal: 'center' };
+        cedulaCell.border = { 
+            bottom: { style: 'thin', color: { argb: COLORES.borde } },
+            left: { style: 'thin', color: { argb: COLORES.borde } },
+            right: { style: 'thin', color: { argb: COLORES.borde } }
+        };
+        
+        const nombreCell = ws.getCell(`B${currentRow}`);
+        nombreCell.value = est.nombre_completo;
+        nombreCell.alignment = { vertical: 'top', wrapText: true };
+        nombreCell.border = { 
+            bottom: { style: 'thin', color: { argb: COLORES.borde } },
+            left: { style: 'thin', color: { argb: COLORES.borde } },
+            right: { style: 'thin', color: { argb: COLORES.borde } }
+        };
+        
+        const correoCell = ws.getCell(`C${currentRow}`);
+        correoCell.value = est.correo || '';
+        correoCell.alignment = { vertical: 'top', horizontal: 'center' };
+        correoCell.font = { size: 9, color: { argb: est.correo ? 'FF333333' : 'FF999999' } };
+        correoCell.border = { 
+            bottom: { style: 'thin', color: { argb: COLORES.borde } },
+            left: { style: 'thin', color: { argb: COLORES.borde } },
+            right: { style: 'thin', color: { argb: COLORES.borde } }
+        };
+        
+        const notaCell = ws.getCell(`D${currentRow}`);
+        notaCell.value = promedio ? parseFloat(promedio.toFixed(2)) : null;
+        notaCell.numFmt = '0.00';
+        notaCell.alignment = { horizontal: 'center', vertical: 'top' };
+        notaCell.border = { 
+            bottom: { style: 'thin', color: { argb: COLORES.borde } },
+            left: { style: 'thin', color: { argb: COLORES.borde } },
+            right: { style: 'thin', color: { argb: COLORES.borde } }
+        };
+        if (promedio) {
+            notaCell.font = { bold: true, size: 11, color: { argb: COLORES.notaVerde } };
+        }
+        
+        const comentarioCell = ws.getCell(`E${currentRow}`);
+        comentarioCell.value = comentarios || 'El estudiante no presentó la actividad correspondiente dentro del plazo establecido';
+        comentarioCell.alignment = { vertical: 'top', wrapText: true };
+        comentarioCell.border = { 
+            bottom: { style: 'thin', color: { argb: COLORES.borde } },
+            left: { style: 'thin', color: { argb: COLORES.borde } },
+            right: { style: 'thin', color: { argb: COLORES.borde } }
+        };
+        
+        const fillColor = index % 2 === 0 ? COLORES.fondoFila : 'FFFFFFFF';
+        [cedulaCell, nombreCell, correoCell, notaCell, comentarioCell].forEach(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+        });
+        
+        ws.getRow(currentRow).height = 65;
+        currentRow++;
+    });
+    
+    currentRow += 2;
+    ws.mergeCells(`A${currentRow}:E${currentRow}`);
+    const footerCell = ws.getCell(`A${currentRow}`);
+    footerCell.value = `Generado el ${new Date().toLocaleDateString('es-CO')} - Sistema de Evaluación Fondo Progresa 2026`;
+    footerCell.font = { italic: true, size: 9, color: { argb: 'FF666666' } };
+    footerCell.alignment = { horizontal: 'center' };
+    
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, 'Ficha General de Calificación 2026 - Con Correos.xlsx');
+    alert('Archivo exportado exitosamente');
 }

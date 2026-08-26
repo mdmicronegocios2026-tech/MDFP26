@@ -153,6 +153,7 @@
                     <form id="add-student-form" class="inline-form">
                         <input type="text" id="new-cedula" placeholder="Cédula" required>
                         <input type="text" id="new-nombre" placeholder="Nombre completo" required>
+                        <input type="email" id="new-correo" placeholder="Correo (opcional)">
                         <button type="submit" class="btn btn-success">Agregar</button>
                     </form>
                 </div>
@@ -165,6 +166,7 @@
                             <tr>
                                 <th>Cédula</th>
                                 <th>Nombre</th>
+                                <th>Correo</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -202,6 +204,13 @@
                     </ul>
                     <button class="btn btn-primary" onclick="exportarRespuestasCrudas()" style="width:auto;padding:0.75rem 2rem">
                         Descargar Respuestas Crudas (Formadores)
+                    </button>
+                </div>
+                <div class="export-section" style="margin-top:2rem;border-top:2px solid #e0e0e0;padding-top:1.5rem">
+                    <h3>Ficha de Calificación con Correos</h3>
+                    <p>Exporta la ficha general de calificación incluyendo el <strong>correo electrónico</strong> de cada estudiante.</p>
+                    <button class="btn btn-success" onclick="exportarExcelConCorreos()" style="width:auto;padding:0.75rem 2rem;margin-top:1rem">
+                        Descargar Ficha con Correos
                     </button>
                 </div>
             </section>
