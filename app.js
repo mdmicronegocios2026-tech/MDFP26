@@ -401,6 +401,26 @@ function cerrarModal() {
     if (modal) modal.remove();
 }
 
+function verComentario(comentario) {
+    const texto = comentario.replace(/\\n/g, '\n');
+    const existe = document.getElementById('modal-comentario');
+    if (existe) existe.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-comentario';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1100';
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+    modal.innerHTML = `
+        <div style="background:white;padding:1.5rem;border-radius:12px;max-width:500px;width:90%;max-height:70vh;overflow-y:auto">
+            <h3 style="margin-bottom:1rem;color:#1a237e;">Comentario del Evaluador</h3>
+            <div style="background:#f5f5f5;padding:1rem;border-radius:8px;white-space:pre-wrap;line-height:1.6;color:#333;">${texto || 'No hay comentario disponible.'}</div>
+            <br>
+            <button class="btn btn-secondary" onclick="document.getElementById('modal-comentario').remove()" style="width:auto;padding:0.5rem 1rem">Cerrar</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
 function verDetalleEstudiante(estudianteId) {
     const estudiante = estudiantes.find(e => e.id === estudianteId);
     if (!estudiante) return;
@@ -421,6 +441,7 @@ function verDetalleEstudiante(estudianteId) {
                     <th>Evaluador</th>
                     <th>Nota</th>
                     <th>Estado</th>
+                    <th>Comentario</th>
                     <th>Acción</th>
                 </tr>
             </thead>
@@ -428,11 +449,17 @@ function verDetalleEstudiante(estudianteId) {
         
         evasEst.forEach(eva => {
             const ev = evaluadores.find(u => u.id === eva.evaluador_id);
+            const tieneComentario = eva.comentario_global && eva.comentario_global.trim().length > 0;
             html += `
                 <tr>
                     <td>${ev ? ev.nombre_completo : 'Desconocido'}</td>
                     <td><strong>${eva.nota_individual ? eva.nota_individual.toFixed(2) : '-'}</strong></td>
                     <td><span class="badge ${eva.estado === 'completada' ? 'badge-success' : 'badge-warning'}">${eva.estado === 'completada' ? 'Completada' : 'Borrador'}</span></td>
+                    <td>
+                        ${tieneComentario 
+                            ? `<button class="btn btn-primary" style="width:auto;padding:0.25rem 0.5rem;font-size:0.75rem" onclick="verComentario('${eva.comentario_global.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">Ver Comentario</button>` 
+                            : '<span style="color:#999; font-size:0.8rem;">Sin comentario</span>'}
+                    </td>
                     <td>
                         <button class="btn btn-danger" style="width:auto;padding:0.25rem 0.5rem;font-size:0.75rem" onclick="eliminarEvaluacion('${eva.id}')">Eliminar</button>
                     </td>
