@@ -21,7 +21,7 @@ const CRITERIOS = [
         nombre: 'Resumen Ejecutivo', 
         peso: 0.10,
         niveles: {
-            5: 'Presenta un resumen ejecutivo ampliamente claro, descripción del proyecto concisa y coherente, reconoce su propósito y singularidad. Objetivos de corto y largo plazo claros y específicos. Explica de manera clara el problema o necesidad que se aborda y cómo el proyecto proporciona una solución alineada.',
+            5: 'Presenta un resumen ejecutivo ampliamente claro, descripción del proyecto concisa y coherente, reconoce su propósito y singularidad. Objetivos de corto, mediano y largo plazo claros y específicos. Explica de manera clara el problema o necesidad que se aborda y cómo el proyecto proporciona una solución alineada. Incluye el lienzo Canvas, el cual es coherente con su iniciativa.',
             4: 'Presenta un resumen claro y coherente, con objetivos definidos y explicación del problema, aunque con ligeros detalles faltantes.',
             3: 'Resumen general, con descripción y objetivos parcialmente claros; la explicación del problema o solución es superficial.',
             2: 'Resumen incompleto, con descripción poco coherente y objetivos vagos; la explicación del problema es confusa.',
@@ -60,7 +60,7 @@ const CRITERIOS = [
         nombre: 'Estudio Financiero', 
         peso: 0.25,
         niveles: {
-            5: 'Estudio financiero acertado y totalmente coherente con el ejercicio. Describe detalladamente la inversión requerida, en coherencia con el Fondo Progresa 2025; detalla capital y su distribución. Análisis completo de flujos de caja, ventas, rentabilidad y punto de equilibrio; coherente con simulador financiero.',
+            5: 'Estudio financiero acertado y totalmente coherente con el ejercicio. Describe detalladamente la inversión requerida, en coherencia con el Fondo Progresa 2026; detalla capital y su distribución. Análisis completo de flujos de caja, ventas, rentabilidad y punto de equilibrio; coherente con simulador financiero.',
             4: 'Estudio financiero bien estructurado, con inversión y distribución claras, análisis de flujos y rentabilidad casi completos, coherente con simulador salvo pequeños detalles.',
             3: 'Estudio general, inversión descrita de forma básica, análisis de flujos, ventas o rentabilidad parcial, algunas inconsistencias con simulador.',
             2: 'Estudio incompleto, inversión vaga, análisis de flujos o rentabilidad limitado, inconsistencias notables.',
@@ -190,11 +190,13 @@ async function signOut() {
     document.getElementById('login-screen').style.display = 'flex';
 }
 
-function showMainScreen() {
+async function showMainScreen() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-screen').style.display = 'block';
     document.getElementById('user-name').textContent = userProfile?.nombre_completo || currentUser.email;
     document.getElementById('user-role').textContent = userProfile?.rol === 'admin' ? 'Administrador' : 'Evaluador';
+    
+    await loadData();
     
     const nav = document.getElementById('main-nav');
     if (userProfile?.rol === 'evaluador') {
@@ -205,8 +207,6 @@ function showMainScreen() {
         nav.querySelector('[data-view="evaluar"]').style.display = 'none';
         switchView('dashboard');
     }
-    
-    loadData();
 }
 
 // ============================================
@@ -369,9 +369,10 @@ function renderDashboardTable() {
     
     estudiantes.forEach(est => {
         const evasEst = evaluaciones.filter(e => e.estudiante_id === est.id && e.estado === 'completada');
-        const promedio = evasEst.length > 0 
-            ? evasEst.reduce((sum, e) => sum + (e.nota_individual || 0), 0) / evasEst.length 
-            : null;
+        const asignados = asignaciones.filter(a => a.estudiante_id === est.id).length;
+        const totalEvaluadores = Math.max(asignados, 1);
+        const sumaNotas = evasEst.reduce((sum, e) => sum + (e.nota_individual || 0), 0);
+        const promedio = sumaNotas / totalEvaluadores;
         
         const evaluadoresNombres = evasEst.map(e => {
             const ev = evaluadores.find(u => u.id === e.evaluador_id);
@@ -382,8 +383,8 @@ function renderDashboardTable() {
         tr.innerHTML = `
             <td>${est.cedula}</td>
             <td>${est.nombre_completo}</td>
-            <td>${evasEst.length}/5</td>
-            <td><strong style="color:${promedio ? '#2e7d32' : '#f57c00'}">${promedio ? promedio.toFixed(2) : 'Pendiente'}</strong></td>
+            <td>${evasEst.length}/${MAX_EVALUADORES_POR_ESTUDIANTE}</td>
+            <td><strong style="color:${promedio > 0 ? '#2e7d32' : '#f57c00'}">${promedio.toFixed(2)}</strong></td>
             <td style="font-size:0.85rem">${evaluadoresNombres || '-'}</td>
             <td>
                 <button class="btn btn-danger" style="width:auto;padding:0.25rem 0.5rem;font-size:0.75rem" onclick="verDetalleEstudiante('${est.id}')">Ver Detalle</button>
@@ -429,7 +430,7 @@ function verDetalleEstudiante(estudianteId) {
     
     let html = `<h3>${estudiante.nombre_completo}</h3>`;
     html += `<p>Cédula: ${estudiante.cedula}</p>`;
-    html += `<p>Evaluaciones: ${evasEst.length}/5</p>`;
+    html += `<p>Evaluaciones: ${evasEst.length}/${MAX_EVALUADORES_POR_ESTUDIANTE}</p>`;
     html += `<br>`;
     
     if (evasEst.length === 0) {
@@ -469,13 +470,29 @@ function verDetalleEstudiante(estudianteId) {
         html += `</tbody></table>`;
     }
     
-    const promedio = evasEst.length > 0 
-        ? evasEst.reduce((sum, e) => sum + (e.nota_individual || 0), 0) / evasEst.length 
-        : null;
+    const asignadosAlEst = asignaciones.filter(a => a.estudiante_id === estudianteId);
+    const idsQueEvalaron = evasEst.map(e => e.evaluador_id);
+    const pendientes = asignadosAlEst.filter(a => !idsQueEvalaron.includes(a.evaluador_id));
+    
+    if (pendientes.length > 0) {
+        html += `<div style="margin-top:1.5rem;padding:1rem;background:#fff3e0;border-radius:8px;border-left:4px solid #f57c00;">
+            <strong style="color:#e65100;">📋 Formadores Pendientes por Evaluar:</strong>
+            <ul style="margin:0.5rem 0 0 1.2rem;padding:0;">`;
+        pendientes.forEach(a => {
+            const ev = evaluadores.find(u => u.id === a.evaluador_id);
+            html += `<li style="margin-bottom:0.3rem;color:#333;">${ev ? ev.nombre_completo : 'Desconocido'} <span class="badge badge-warning" style="font-size:0.7rem;">Pendiente</span></li>`;
+        });
+        html += `</ul></div>`;
+    }
+    
+    const asignadosModal = asignadosAlEst.length;
+    const totalEvaluadoresModal = Math.max(asignadosModal, 1);
+    const sumaNotasModal = evasEst.reduce((sum, e) => sum + (e.nota_individual || 0), 0);
+    const promedio = sumaNotasModal / totalEvaluadoresModal;
     
     html += `<br><div class="nota-display">
         <div>Nota Final (Promedio)</div>
-        <div class="nota-value">${promedio ? promedio.toFixed(2) : 'Pendiente'}</div>
+        <div class="nota-value">${promedio.toFixed(2)}</div>
     </div>`;
     
     cerrarModal();
@@ -617,7 +634,7 @@ function showEvalForm(estudiante) {
     
     document.getElementById('eval-list-view').style.display = 'none';
     document.getElementById('eval-form-view').style.display = 'block';
-    document.getElementById('eval-student-info').innerHTML = `<strong>${estudiante.nombre_completo}</strong> | Cédula: ${estudiante.cedula}`;
+    document.getElementById('eval-student-info').innerHTML = `<strong>${estudiante.nombre_completo}</strong>`;
     document.getElementById('comentario-global').value = '';
     
     const evaExistente = evaluaciones.find(e => 
@@ -652,7 +669,6 @@ function renderEvalTable() {
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${est.cedula}</td>
             <td>${est.nombre_completo}</td>
             <td><span class="badge ${completada ? 'badge-success' : 'badge-warning'}">${completada ? 'Completada' : 'Pendiente'}</span></td>
             <td><strong>${completada ? eva.nota_individual.toFixed(2) : '-'}</strong></td>
@@ -671,7 +687,7 @@ function renderCriterios() {
         card.className = 'criterion-card';
         
         const valorActual = evalValues[criterio.key];
-        const nivelEntero = valorActual !== undefined ? Math.round(Math.min(5, Math.max(0, valorActual))) : null;
+        const nivelEntero = valorActual !== undefined ? Math.floor(Math.min(5, Math.max(0, valorActual))) : null;
         const descripcionActual = nivelEntero !== null ? criterio.niveles[nivelEntero] : '';
         
         card.innerHTML = `
@@ -722,9 +738,9 @@ function getNombreNivel(valor) {
     const nombres = {
         5: 'Excelente',
         4: 'Bueno',
-        3: 'Regular',
-        2: 'Insuficiente',
-        1: 'Mínimo',
+        3: 'Regular (3 a 3.9)',
+        2: 'Insuficiente (2 a 2.9)',
+        1: 'Mínimo (1 a 1.9)',
         0: 'No presenta'
     };
     return nombres[valor] || '';
@@ -759,7 +775,7 @@ function updateDecimalScore(key, value) {
     num = Math.min(5, Math.max(0, num));
     evalValues[key] = num;
     
-    const nivelEntero = Math.round(num);
+    const nivelEntero = Math.floor(num);
     document.querySelectorAll(`[data-key="${key}"]`).forEach(btn => {
         btn.classList.toggle('selected', parseInt(btn.dataset.value) === nivelEntero);
     });
@@ -783,7 +799,7 @@ function updateRubricaDescription(key, value) {
         return;
     }
     
-    const nivelEntero = Math.round(Math.min(5, Math.max(0, value)));
+    const nivelEntero = Math.floor(Math.min(5, Math.max(0, value)));
     const descripcion = criterio.niveles[nivelEntero];
     descDiv.style.background = '#e3f2fd';
     descDiv.style.borderLeftColor = '#1976d2';
@@ -1427,9 +1443,10 @@ async function exportarMatrizGeneralDemo() {
     let currentRow = 9;
     estudiantes.forEach((est, index) => {
         const evasEst = evaluaciones.filter(e => e.estudiante_id === est.id && e.estado === 'completada');
-        const promedio = evasEst.length > 0 
-            ? evasEst.reduce((sum, e) => sum + (e.nota_individual || 0), 0) / evasEst.length 
-            : null;
+        const asignados = asignaciones.filter(a => a.estudiante_id === est.id).length;
+        const totalEvaluadores = Math.max(asignados, 1);
+        const sumaNotas = evasEst.reduce((sum, e) => sum + (e.nota_individual || 0), 0);
+        const promedio = sumaNotas / totalEvaluadores;
         const comentarios = evasEst.map(e => {
             const ev = evaluadores.find(u => u.id === e.evaluador_id);
             const prefijo = ev ? ev.nombre_completo.split(' ')[0].toUpperCase() : 'EV';
@@ -1455,7 +1472,7 @@ async function exportarMatrizGeneralDemo() {
         };
         
         const notaCell = ws.getCell(`C${currentRow}`);
-        notaCell.value = promedio ? parseFloat(promedio.toFixed(2)) : null;
+        notaCell.value = parseFloat(promedio.toFixed(2));
         notaCell.numFmt = '0.00';
         notaCell.alignment = { horizontal: 'center', vertical: 'top' };
         notaCell.border = { 
@@ -1647,7 +1664,7 @@ async function exportarFichasIndividuales() {
             let col = 3;
             CRITERIOS.forEach(cr => {
                 const puntaje = eva[`${cr.key}_puntaje`];
-                const desc = eva[`${cr.key}_descripcion`] || '';
+                const desc = getDescripcionRubrica(cr.key, puntaje);
                 
                 const puntajeCell = ws.getCell(currentRow, col);
                 puntajeCell.value = puntaje;
@@ -1713,7 +1730,7 @@ async function exportarFichasIndividuales() {
 function getDescripcionRubrica(criterioKey, puntaje) {
     const criterio = CRITERIOS.find(c => c.key === criterioKey);
     if (!criterio || puntaje === null || puntaje === undefined) return '';
-    const nivel = Math.round(Math.min(5, Math.max(0, puntaje)));
+    const nivel = Math.floor(Math.min(5, Math.max(0, puntaje)));
     return criterio.niveles[nivel] || '';
 }
 
@@ -1890,6 +1907,139 @@ async function exportarRespuestasCrudas() {
 }
 
 // ============================================
+// EXPORTACIÓN EXCEL - FORMADORES PENDIENTES
+// ============================================
+async function exportarPendientes() {
+    const conPendientes = [];
+    
+    estudiantes.forEach(est => {
+        const asignados = asignaciones.filter(a => a.estudiante_id === est.id);
+        const evasEst = evaluaciones.filter(e => e.estudiante_id === est.id && e.estado === 'completada');
+        const idsQueEvalaron = evasEst.map(e => e.evaluador_id);
+        const pendientes = asignados.filter(a => !idsQueEvalaron.includes(a.evaluador_id));
+        
+        if (pendientes.length > 0) {
+            conPendientes.push({
+                nombre: est.nombre_completo,
+                pendientes: pendientes.map(a => {
+                    const ev = evaluadores.find(u => u.id === a.evaluador_id);
+                    return ev ? ev.nombre_completo : 'Desconocido';
+                })
+            });
+        }
+    });
+    
+    if (conPendientes.length === 0) {
+        alert('No hay estudiantes con formadores pendientes. Todos han sido evaluados.');
+        return;
+    }
+    
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Formadores Pendientes');
+    
+    ws.getColumn(1).width = 50;
+    ws.getColumn(2).width = 60;
+    
+    ws.getRow(1).height = 45;
+    ws.mergeCells('A1:B1');
+    const bannerCell = ws.getCell('A1');
+    bannerCell.value = '    FONDO PROGRESA    |    ALCALDÍA DE ZIPAQUIRÁ    |    SEC. DESARROLLO ECONÓMICO Y TURISMO    |    UNIMINUTO    |    E.P.E.    ';
+    bannerCell.font = { bold: true, size: 12, color: { argb: COLORES.textoBanner } };
+    bannerCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    bannerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondoBanner } };
+    
+    ws.getRow(2).height = 25;
+    ws.mergeCells('A2:B2');
+    const subtituloCell = ws.getCell('A2');
+    subtituloCell.value = 'Educación de calidad al alcance de todos | Corporación Universitaria Minuto de Dios';
+    subtituloCell.font = { italic: true, size: 10, color: { argb: COLORES.textoBanner } };
+    subtituloCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    subtituloCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondoSubtitulo } };
+    
+    ws.getRow(3).height = 5;
+    ws.mergeCells('A3:B3');
+    ws.getCell('A3').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC107' } };
+    
+    ws.getRow(4).height = 15;
+    
+    ws.getRow(5).height = 35;
+    ws.mergeCells('A5:B5');
+    const titleCell = ws.getCell('A5');
+    titleCell.value = 'FORMADORES PENDIENTES POR EVALUAR';
+    titleCell.font = { bold: true, size: 14, color: { argb: COLORES.textoBanner } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondoSubtitulo } };
+    
+    ws.getRow(6).height = 10;
+    
+    ws.mergeCells('A7:A8');
+    ws.mergeCells('B7:B8');
+    
+    const headers = [
+        { cell: 'A7', value: 'NOMBRE DEL ESTUDIANTE' },
+        { cell: 'B7', value: 'FORMADORES PENDIENTES' }
+    ];
+    
+    headers.forEach(h => {
+        const cell = ws.getCell(h.cell);
+        cell.value = h.value;
+        cell.font = { bold: true, size: 11, color: { argb: COLORES.textoBanner } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORES.fondoBanner } };
+        cell.border = {
+            top: { style: 'medium', color: { argb: COLORES.fondoBanner } },
+            bottom: { style: 'medium', color: { argb: COLORES.fondoBanner } },
+            left: { style: 'thin', color: { argb: COLORES.textoBanner } },
+            right: { style: 'thin', color: { argb: COLORES.textoBanner } }
+        };
+    });
+    ws.getRow(7).height = 25;
+    ws.getRow(8).height = 25;
+    
+    let currentRow = 9;
+    conPendientes.forEach((item, index) => {
+        const nombreCell = ws.getCell(`A${currentRow}`);
+        nombreCell.value = item.nombre;
+        nombreCell.alignment = { vertical: 'top', wrapText: true };
+        nombreCell.border = { 
+            bottom: { style: 'thin', color: { argb: COLORES.borde } },
+            left: { style: 'thin', color: { argb: COLORES.borde } },
+            right: { style: 'thin', color: { argb: COLORES.borde } }
+        };
+        
+        const pendientesCell = ws.getCell(`B${currentRow}`);
+        pendientesCell.value = item.pendientes.join('\n');
+        pendientesCell.alignment = { vertical: 'top', wrapText: true };
+        pendientesCell.font = { color: { argb: 'FFC62828' } };
+        pendientesCell.border = { 
+            bottom: { style: 'thin', color: { argb: COLORES.borde } },
+            left: { style: 'thin', color: { argb: COLORES.borde } },
+            right: { style: 'thin', color: { argb: COLORES.borde } }
+        };
+        
+        const fillColor = index % 2 === 0 ? COLORES.fondoFila : 'FFFFFFFF';
+        [nombreCell, pendientesCell].forEach(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+        });
+        
+        ws.getRow(currentRow).height = Math.max(30, item.pendientes.length * 18);
+        currentRow++;
+    });
+    
+    currentRow += 2;
+    ws.mergeCells(`A${currentRow}:B${currentRow}`);
+    const footerCell = ws.getCell(`A${currentRow}`);
+    footerCell.value = `Generado el ${new Date().toLocaleDateString('es-CO')} - Sistema de Evaluación Fondo Progresa 2026`;
+    footerCell.font = { italic: true, size: 9, color: { argb: 'FF666666' } };
+    footerCell.alignment = { horizontal: 'center' };
+    
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, 'Formadores Pendientes Fondo Progresa 2026.xlsx');
+    alert(`Archivo exportado: ${conPendientes.length} estudiante(s) con formadores pendientes`);
+}
+
+// ============================================
 // EXPORTACIÓN EXCEL CON CORREOS
 // ============================================
 async function exportarExcelConCorreos() {
@@ -1967,9 +2117,10 @@ async function exportarExcelConCorreos() {
     let currentRow = 9;
     estudiantes.forEach((est, index) => {
         const evasEst = evaluaciones.filter(e => e.estudiante_id === est.id && e.estado === 'completada');
-        const promedio = evasEst.length > 0 
-            ? evasEst.reduce((sum, e) => sum + (e.nota_individual || 0), 0) / evasEst.length 
-            : null;
+        const asignados = asignaciones.filter(a => a.estudiante_id === est.id).length;
+        const totalEvaluadores = Math.max(asignados, 1);
+        const sumaNotas = evasEst.reduce((sum, e) => sum + (e.nota_individual || 0), 0);
+        const promedio = sumaNotas / totalEvaluadores;
         const comentarios = evasEst.map(e => {
             const ev = evaluadores.find(u => u.id === e.evaluador_id);
             const prefijo = ev ? ev.nombre_completo.split(' ')[0].toUpperCase() : 'EV';
@@ -2005,7 +2156,7 @@ async function exportarExcelConCorreos() {
         };
         
         const notaCell = ws.getCell(`D${currentRow}`);
-        notaCell.value = promedio ? parseFloat(promedio.toFixed(2)) : null;
+        notaCell.value = parseFloat(promedio.toFixed(2));
         notaCell.numFmt = '0.00';
         notaCell.alignment = { horizontal: 'center', vertical: 'top' };
         notaCell.border = { 

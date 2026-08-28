@@ -105,7 +105,6 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Cédula</th>
                                     <th>Nombre</th>
                                     <th>Estado</th>
                                     <th>Nota</th>
@@ -185,32 +184,28 @@
             <section id="view-exportar" class="view">
                 <h2>Exportar Resultados</h2>
                 <div class="export-section">
-                    <h3>Exportar a Excel</h3>
-                    <p>Se generarán los archivos con la misma estructura utilizada en 2025:</p>
-                    <ul>
-                        <li><strong>Ficha General de Calificación 2026.xlsx</strong> - Consolidado con notas finales</li>
-                        <li><strong>Ficha de Evaluación [evaluador].xlsx</strong> - Por cada evaluador</li>
-                    </ul>
-                    <button class="btn btn-success" onclick="exportarExcel()" style="width:auto;padding:0.75rem 2rem">
-                        Descargar Archivos Excel
+                    <h3>Calificaciones</h3>
+                    <p>Descarga el reporte consolidado con las <strong>notas finales</strong> de cada estudiante.</p>
+                    <button class="btn btn-success" onclick="exportarExcelConCorreos()" style="width:auto;padding:0.75rem 2rem;margin-top:1rem">
+                        Descargar Reporte de Notas
                     </button>
                 </div>
                 <div class="export-section" style="margin-top:2rem;border-top:2px solid #e0e0e0;padding-top:1.5rem">
-                    <h3>Respuestas Crudas de Formadores</h3>
-                    <p>Descarga las respuestas individuales de cada formador <strong>sin computar</strong>, en hojas separadas por evaluador. Formato original de la rúbrica 2025.</p>
+                    <h3>Evaluaciones Individuales</h3>
+                    <p>Descarga las respuestas individuales de cada <strong>formador</strong>, en hojas separadas por evaluador.</p>
                     <ul>
                         <li><strong>Respuestas Formadores Fondo Progresa 2026.xlsx</strong> - Un archivo con hojas por cada formador</li>
                         <li>Incluye: puntaje + descripción de rúbrica por criterio, nota y observación</li>
                     </ul>
                     <button class="btn btn-primary" onclick="exportarRespuestasCrudas()" style="width:auto;padding:0.75rem 2rem">
-                        Descargar Respuestas Crudas (Formadores)
+                        Descargar Reporte de Formadores
                     </button>
                 </div>
                 <div class="export-section" style="margin-top:2rem;border-top:2px solid #e0e0e0;padding-top:1.5rem">
-                    <h3>Ficha de Calificación con Correos</h3>
-                    <p>Exporta la ficha general de calificación incluyendo el <strong>correo electrónico</strong> de cada estudiante.</p>
-                    <button class="btn btn-success" onclick="exportarExcelConCorreos()" style="width:auto;padding:0.75rem 2rem;margin-top:1rem">
-                        Descargar Ficha con Correos
+                    <h3>Formadores Pendientes</h3>
+                    <p>Lista de estudiantes con <strong>formadores pendientes</strong> por evaluar. Solo aparecen quienes aún no han sido evaluados completamente.</p>
+                    <button class="btn btn-primary" onclick="exportarPendientes()" style="width:auto;padding:0.75rem 2rem;margin-top:1rem">
+                        Descargar Reporte Pendientes
                     </button>
                 </div>
             </section>
