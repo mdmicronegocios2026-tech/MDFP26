@@ -670,10 +670,10 @@ function renderEvalTable() {
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${est.nombre_completo}</td>
+            <td style="white-space:normal">${est.nombre_completo}</td>
             <td><span class="badge ${completada ? 'badge-success' : 'badge-warning'}">${completada ? 'Completada' : 'Pendiente'}</span></td>
             <td><strong>${completada ? eva.nota_individual.toFixed(2) : '-'}</strong></td>
-            <td><button class="btn btn-primary" style="width:auto;padding:0.5rem 1rem" onclick='showEvalForm(${JSON.stringify(est)})'>${completada ? 'Ver/Editar' : 'Evaluar'}</button></td>
+            <td><button class="btn btn-primary btn-table-action" onclick='showEvalForm(${JSON.stringify(est)})'>${completada ? 'Ver/Editar' : 'Evaluar'}</button></td>
         `;
         tbody.appendChild(tr);
     });
