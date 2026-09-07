@@ -120,6 +120,26 @@ body {
     gap: 1rem;
 }
 
+/* Logos */
+.login-logo {
+    display: block;
+    max-width: 300px;
+    width: 100%;
+    margin: 0 auto 1.5rem;
+    height: auto;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.header-logo {
+    height: 45px;
+    width: auto;
+}
+
 .role-badge {
     background: rgba(255,255,255,0.2);
     padding: 0.25rem 0.75rem;
@@ -896,6 +916,14 @@ tr:hover {
         font-size: 1.2rem;
     }
 
+    .header-logo {
+        height: 35px;
+    }
+
+    .header-left {
+        gap: 0.5rem;
+    }
+
     .user-info {
         flex-wrap: wrap;
         justify-content: center;
@@ -1234,6 +1262,10 @@ tr:hover {
 
     .login-card h1 {
         font-size: 1.25rem;
+    }
+
+    .login-logo {
+        max-width: 250px;
     }
 
     /* Table action buttons */
