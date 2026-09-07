@@ -186,25 +186,25 @@
                 <div class="export-section">
                     <h3>Calificaciones</h3>
                     <p>Descarga el reporte consolidado con las <strong>notas finales</strong> de cada estudiante.</p>
-                    <button class="btn btn-success" onclick="exportarExcelConCorreos()" style="width:auto;padding:0.75rem 2rem;margin-top:1rem">
+                    <button class="btn btn-success btn-export" onclick="exportarExcelConCorreos()">
                         Descargar Reporte de Notas
                     </button>
                 </div>
-                <div class="export-section" style="margin-top:2rem;border-top:2px solid #e0e0e0;padding-top:1.5rem">
+                <div class="export-section export-divider">
                     <h3>Evaluaciones Individuales</h3>
                     <p>Descarga las respuestas individuales de cada <strong>formador</strong>, en hojas separadas por evaluador.</p>
                     <ul>
                         <li><strong>Respuestas Formadores Fondo Progresa 2026.xlsx</strong> - Un archivo con hojas por cada formador</li>
                         <li>Incluye: puntaje + descripción de rúbrica por criterio, nota y observación</li>
                     </ul>
-                    <button class="btn btn-primary" onclick="exportarRespuestasCrudas()" style="width:auto;padding:0.75rem 2rem">
+                    <button class="btn btn-primary btn-export" onclick="exportarRespuestasCrudas()">
                         Descargar Reporte de Formadores
                     </button>
                 </div>
-                <div class="export-section" style="margin-top:2rem;border-top:2px solid #e0e0e0;padding-top:1.5rem">
+                <div class="export-section export-divider">
                     <h3>Formadores Pendientes</h3>
                     <p>Lista de estudiantes con <strong>formadores pendientes</strong> por evaluar. Solo aparecen quienes aún no han sido evaluados completamente.</p>
-                    <button class="btn btn-primary" onclick="exportarPendientes()" style="width:auto;padding:0.75rem 2rem;margin-top:1rem">
+                    <button class="btn btn-primary btn-export" onclick="exportarPendientes()">
                         Descargar Reporte Pendientes
                     </button>
                 </div>

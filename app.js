@@ -301,7 +301,7 @@ function renderUsuariosSync() {
                 <h3>Usuarios del Sistema</h3>
                 <p style="color:#666;font-size:0.85rem">Administra los roles de cada usuario registrado</p>
             </div>
-            <div style="overflow-x:auto; padding: 0 1rem 1rem;">
+            <div class="scroll-wrapper">
                 <table class="sync-table">
                     <thead>
                         <tr>
@@ -331,7 +331,7 @@ function renderUsuariosSync() {
                 </table>
             </div>
         </div>
-        <div style="margin-top:1rem; padding:0.75rem; background:#e3f2fd; border-radius:6px; font-size:0.85rem; color:#1565c0;">
+        <div class="info-banner">
             <strong>Nota:</strong> Si un usuario se crea nuevo en Auth pero no aparece aquí, simplemente pídele que inicie sesión una vez. El sistema creará su perfil automáticamente.
         </div>
     `;
@@ -387,7 +387,7 @@ function renderDashboardTable() {
             <td><strong style="color:${promedio > 0 ? '#2e7d32' : '#f57c00'}">${promedio.toFixed(2)}</strong></td>
             <td style="font-size:0.85rem">${evaluadoresNombres || '-'}</td>
             <td>
-                <button class="btn btn-danger" style="width:auto;padding:0.25rem 0.5rem;font-size:0.75rem" onclick="verDetalleEstudiante('${est.id}')">Ver Detalle</button>
+                <button class="btn btn-danger btn-table-action" onclick="verDetalleEstudiante('${est.id}')">Ver Detalle</button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -409,12 +409,13 @@ function verComentario(comentario) {
 
     const modal = document.createElement('div');
     modal.id = 'modal-comentario';
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1100';
+    modal.className = 'modal-overlay';
+    modal.style.zIndex = '1100';
     modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
     modal.innerHTML = `
-        <div style="background:white;padding:1.5rem;border-radius:12px;max-width:500px;width:90%;max-height:70vh;overflow-y:auto">
+        <div class="modal-content--small">
             <h3 style="margin-bottom:1rem;color:#1a237e;">Comentario del Evaluador</h3>
-            <div style="background:#f5f5f5;padding:1rem;border-radius:8px;white-space:pre-wrap;line-height:1.6;color:#333;">${texto || 'No hay comentario disponible.'}</div>
+            <div class="comment-body">${texto || 'No hay comentario disponible.'}</div>
             <br>
             <button class="btn btn-secondary" onclick="document.getElementById('modal-comentario').remove()" style="width:auto;padding:0.5rem 1rem">Cerrar</button>
         </div>
@@ -436,7 +437,7 @@ function verDetalleEstudiante(estudianteId) {
     if (evasEst.length === 0) {
         html += `<p style="color:#666">No hay evaluaciones registradas</p>`;
     } else {
-        html += `<table style="width:100%">
+        html += `<div class="scroll-wrapper"><table style="width:100%">
             <thead>
                 <tr>
                     <th>Evaluador</th>
@@ -458,16 +459,16 @@ function verDetalleEstudiante(estudianteId) {
                     <td><span class="badge ${eva.estado === 'completada' ? 'badge-success' : 'badge-warning'}">${eva.estado === 'completada' ? 'Completada' : 'Borrador'}</span></td>
                     <td>
                         ${tieneComentario 
-                            ? `<button class="btn btn-primary" style="width:auto;padding:0.25rem 0.5rem;font-size:0.75rem" onclick="verComentario('${eva.comentario_global.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">Ver Comentario</button>` 
+                            ? `<button class="btn btn-primary btn-table-action" onclick="verComentario('${eva.comentario_global.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">Ver Comentario</button>` 
                             : '<span style="color:#999; font-size:0.8rem;">Sin comentario</span>'}
                     </td>
                     <td>
-                        <button class="btn btn-danger" style="width:auto;padding:0.25rem 0.5rem;font-size:0.75rem" onclick="eliminarEvaluacion('${eva.id}')">Eliminar</button>
+                        <button class="btn btn-danger btn-table-action" onclick="eliminarEvaluacion('${eva.id}')">Eliminar</button>
                     </td>
                 </tr>`;
         });
         
-        html += `</tbody></table>`;
+        html += `</tbody></table></div>`;
     }
     
     const asignadosAlEst = asignaciones.filter(a => a.estudiante_id === estudianteId);
@@ -475,7 +476,7 @@ function verDetalleEstudiante(estudianteId) {
     const pendientes = asignadosAlEst.filter(a => !idsQueEvalaron.includes(a.evaluador_id));
     
     if (pendientes.length > 0) {
-        html += `<div style="margin-top:1.5rem;padding:1rem;background:#fff3e0;border-radius:8px;border-left:4px solid #f57c00;">
+        html += `<div class="pending-box">
             <strong style="color:#e65100;">📋 Formadores Pendientes por Evaluar:</strong>
             <ul style="margin:0.5rem 0 0 1.2rem;padding:0;">`;
         pendientes.forEach(a => {
@@ -499,10 +500,10 @@ function verDetalleEstudiante(estudianteId) {
     
     const modal = document.createElement('div');
     modal.id = 'modal-detalle';
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:1000';
+    modal.className = 'modal-overlay';
     modal.addEventListener('click', function(e) { if (e.target === modal) cerrarModal(); });
     modal.innerHTML = `
-        <div style="background:white;padding:2rem;border-radius:12px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto">
+        <div class="modal-content">
             ${html}
             <br>
             <button class="btn btn-secondary" onclick="cerrarModal()" style="width:auto;padding:0.5rem 1rem">Cerrar</button>
@@ -584,7 +585,7 @@ function renderStudentsTable() {
             <td>${est.cedula}</td>
             <td>${est.nombre_completo}</td>
             <td>${est.correo || '<span style="color:#999">-</span>'}</td>
-            <td><button class="btn btn-danger" style="width:auto;padding:0.25rem 0.5rem;font-size:0.8rem" onclick="deleteStudent('${est.id}')">Eliminar Todo</button></td>
+            <td><button class="btn btn-danger btn-table-action" onclick="deleteStudent('${est.id}')">Eliminar Todo</button></td>
         `;
         tbody.appendChild(tr);
     });
@@ -716,16 +717,7 @@ function renderCriterios() {
                     onchange="updateDecimalScore('${criterio.key}', this.value)"
                     oninput="updateDecimalScore('${criterio.key}', this.value)">
             </div>
-            <div class="rubric-description" id="desc-${criterio.key}" style="
-                margin-top: 1rem;
-                padding: 1rem;
-                background: ${descripcionActual ? '#e3f2fd' : '#f5f5f5'};
-                border-left: 4px solid ${descripcionActual ? '#1976d2' : '#bdbdbd'};
-                border-radius: 4px;
-                font-size: 0.9rem;
-                color: #333;
-                min-height: 60px;
-            ">
+            <div class="${descripcionActual ? 'rubric-description' : 'rubric-description-empty'}" id="desc-${criterio.key}">
                 <strong>${valorActual !== undefined ? 'Nivel ' + nivelEntero + ' - ' + getNombreNivel(nivelEntero) + ':' : 'Seleccione un nivel para ver la descripción:'}</strong>
                 <p style="margin-top: 0.5rem; line-height: 1.5;">${descripcionActual || 'Haga clic en uno de los niveles arriba para ver la descripción de la rúbrica.'}</p>
             </div>
@@ -790,8 +782,7 @@ function updateRubricaDescription(key, value) {
     if (!criterio || !descDiv) return;
     
     if (value === undefined || value === null) {
-        descDiv.style.background = '#f5f5f5';
-        descDiv.style.borderLeftColor = '#bdbdbd';
+        descDiv.className = 'rubric-description-empty';
         descDiv.innerHTML = `
             <strong>Seleccione un nivel para ver la descripción:</strong>
             <p style="margin-top: 0.5rem; line-height: 1.5;">Haga clic en uno de los niveles arriba para ver la descripción de la rúbrica.</p>
@@ -801,8 +792,7 @@ function updateRubricaDescription(key, value) {
     
     const nivelEntero = Math.floor(Math.min(5, Math.max(0, value)));
     const descripcion = criterio.niveles[nivelEntero];
-    descDiv.style.background = '#e3f2fd';
-    descDiv.style.borderLeftColor = '#1976d2';
+    descDiv.className = 'rubric-description';
     descDiv.innerHTML = `
         <strong>Nivel ${nivelEntero} - ${getNombreNivel(nivelEntero)}:</strong>
         <p style="margin-top: 0.5rem; line-height: 1.5;">${descripcion}</p>
@@ -912,16 +902,16 @@ function renderAsignaciones() {
             <div id="import-preview-container" style="display:none; margin-top: 1.5rem;"></div>
         </div>
         
-        <div class="table-container" style="margin-bottom: 2rem; padding: 1.5rem; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div style="border-bottom: 1px solid #dee2e6; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <div class="assignment-card">
+            <div class="assignment-header">
                 <h3 style="margin: 0; color: #1a237e;">Nueva Asignación</h3>
                 <p style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">Busque al estudiante y asígnele manualmente a su evaluador. Máximo ${MAX_EVALUADORES_POR_ESTUDIANTE} formadores por estudiante.</p>
             </div>
             
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
-                <div style="flex: 1; min-width: 250px;">
-                    <label style="display:block; margin-bottom:0.5rem; font-weight:600;">Seleccionar Estudiante:</label>
-                    <select id="manual-estudiante" style="width:100%; padding:0.75rem; border-radius:6px; border:1px solid #ddd; font-size: 1rem; background-color: #fff;">
+            <div class="assignment-form-row">
+                <div class="assignment-form-field">
+                    <label>Seleccionar Estudiante:</label>
+                    <select id="manual-estudiante">
                         <option value="">-- Elija un estudiante --</option>
                         ${estudiantes.map(e => {
                             const count = getAsignacionesDeEstudiante(e.id).length;
@@ -930,9 +920,9 @@ function renderAsignaciones() {
                         }).join('')}
                     </select>
                 </div>
-                <div style="flex: 1; min-width: 250px;">
-                    <label style="display:block; margin-bottom:0.5rem; font-weight:600;">Seleccionar Evaluador:</label>
-                    <select id="manual-evaluador" style="width:100%; padding:0.75rem; border-radius:6px; border:1px solid #ddd; font-size: 1rem; background-color: #fff;">
+                <div class="assignment-form-field">
+                    <label>Seleccionar Evaluador:</label>
+                    <select id="manual-evaluador">
                         <option value="">-- Elija un evaluador --</option>
                         ${evaluadores.map(e => `<option value="${e.id}">${e.nombre_completo}</option>`).join('')}
                     </select>
@@ -947,10 +937,10 @@ function renderAsignaciones() {
             <div class="table-header">
                 <h3>Estudiantes y sus Formadores Asignados</h3>
                 <input type="text" id="asig-buscar" placeholder="Buscar estudiante o cédula..." 
-                    style="padding:0.5rem 0.75rem;border:1px solid #ddd;border-radius:6px;min-width:250px"
+                    style="padding:0.5rem 0.75rem;border:1px solid #ddd;border-radius:6px;min-width:0;width:100%;max-width:300px"
                     oninput="renderAsignacionesTabla()">
             </div>
-            <div style="overflow-x:auto">
+            <div class="scroll-wrapper">
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr style="background: #f8f9fa; text-align: left;">
@@ -1008,7 +998,7 @@ function renderAsignacionesRows() {
                 if (!ev) return '';
                 const evaCompletada = evaluaciones.some(e => e.estudiante_id === est.id && e.evaluador_id === ev.id && e.estado === 'completada');
                 return `
-                    <span style="display:inline-flex;align-items:center;gap:0.4rem;background:#e8eaf6;color:#1a237e;padding:0.35rem 0.6rem;border-radius:20px;margin:0.15rem 0.3rem 0.15rem 0;font-size:0.85rem;">
+                    <span class="evaluator-tag">
                         ${ev.nombre_completo}
                         <span class="badge ${evaCompletada ? 'badge-success' : 'badge-warning'}" style="font-size:0.7rem;">${evaCompletada ? 'Evaluado' : 'Pendiente'}</span>
                         <button onclick="desasignarEvaluador('${ev.id}', '${est.id}')"
@@ -1214,7 +1204,7 @@ function renderPreviewImportacion() {
                 ${totalNew > 0 ? `<span class="status-badge status-warn">${totalNew} estudiantes nuevos</span>` : ''}
             </p>
         </div>
-        <div style="overflow-x:auto; max-height:400px; overflow-y:auto; border:1px solid #dee2e6; border-radius:6px;">
+        <div class="preview-scroll-wrapper">
             <table class="preview-table">
                 <thead>
                     <tr>
