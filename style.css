@@ -620,6 +620,38 @@ tr:hover {
     border-color: #1a237e;
 }
 
+/* ============================================
+   BLOQUEO MÓVIL
+   ============================================ */
+.mobile-blocked {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, #1a237e 0%, #0d47a1 100%);
+    color: white;
+}
+
+.mobile-blocked img {
+    max-width: 280px;
+    margin-bottom: 2rem;
+}
+
+.mobile-blocked h2 {
+    color: #ffcdd2;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+}
+
+.mobile-blocked p {
+    color: #bbdefb;
+    font-size: 1.1rem;
+    max-width: 400px;
+}
+
 /* Loading */
 .loading {
     display: flex;

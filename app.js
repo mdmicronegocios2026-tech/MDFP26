@@ -103,8 +103,18 @@ const MAX_EVALUADORES_POR_ESTUDIANTE = 2;
 // INICIALIZACIÓN
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
+    if (isMobileDevice()) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('mobile-blocked').style.display = 'flex';
+        return;
+    }
     setupEventListeners();
 });
+
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || (window.innerWidth <= 768 && 'ontouchstart' in window);
+}
 
 function setupEventListeners() {
     document.getElementById('login-form').addEventListener('submit', handleLogin);
