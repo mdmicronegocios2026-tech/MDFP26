@@ -2,6 +2,181 @@
 // FONDO PROGRESA 2026 - APLICACIÓN PRINCIPAL
 // ============================================
 
+// ============================================
+// SISTEMA DE NOTIFICACIONES TOAST
+// Uso: toast.success('msg') | toast.error('msg') | toast.warning('msg') | toast.info('msg')
+// ============================================
+const toast = (() => {
+    const ICONOS = {
+        success: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+        error:   '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+        warning: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+        info:    '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+    };
+    const DURACION = { success: 4000, info: 4000, warning: 5500, error: 7000 };
+    const MAX_VISIBLES = 4;
+    let contenedor = null;
+
+    function getContenedor() {
+        if (!contenedor) {
+            contenedor = document.createElement('div');
+            contenedor.className = 'toast-container';
+            contenedor.setAttribute('aria-live', 'polite');
+            document.body.appendChild(contenedor);
+        }
+        return contenedor;
+    }
+
+    function cerrar(el) {
+        if (!el || el.dataset.closing) return;
+        el.dataset.closing = '1';
+        el.classList.add('toast-hide');
+        setTimeout(() => el.remove(), 300);
+    }
+
+    function mostrar(tipo, mensaje, duracion) {
+        const cont = getContenedor();
+        const ms = duracion || DURACION[tipo];
+
+        // Limita la cantidad de toasts simultáneos
+        const activos = cont.querySelectorAll('.toast:not([data-closing])');
+        if (activos.length >= MAX_VISIBLES) cerrar(activos[0]);
+
+        const el = document.createElement('div');
+        el.className = `toast toast-${tipo}`;
+        el.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
+
+        const icono = document.createElement('span');
+        icono.className = 'toast-icon';
+        icono.innerHTML = ICONOS[tipo];
+
+        const texto = document.createElement('div');
+        texto.className = 'toast-message';
+        texto.textContent = mensaje; // textContent evita inyección de HTML
+
+        const btn = document.createElement('button');
+        btn.className = 'toast-close';
+        btn.setAttribute('aria-label', 'Cerrar notificación');
+        btn.innerHTML = '&times;';
+        btn.onclick = () => cerrar(el);
+
+        const barra = document.createElement('div');
+        barra.className = 'toast-progress';
+        barra.style.animationDuration = ms + 'ms';
+
+        el.append(icono, texto, btn, barra);
+        cont.appendChild(el);
+
+        // Cierre automático (se pausa al pasar el mouse)
+        let timer = setTimeout(() => cerrar(el), ms);
+        let inicio = Date.now();
+        let restante = ms;
+        el.addEventListener('mouseenter', () => {
+            clearTimeout(timer);
+            restante -= Date.now() - inicio;
+            barra.style.animationPlayState = 'paused';
+        });
+        el.addEventListener('mouseleave', () => {
+            inicio = Date.now();
+            timer = setTimeout(() => cerrar(el), Math.max(restante, 1000));
+            barra.style.animationPlayState = 'running';
+        });
+        return el;
+    }
+
+    return {
+        success: (m, d) => mostrar('success', m, d),
+        error:   (m, d) => mostrar('error', m, d),
+        warning: (m, d) => mostrar('warning', m, d),
+        info:    (m, d) => mostrar('info', m, d)
+    };
+})();
+
+// ============================================
+// UTILIDADES: escape HTML, diálogo de confirmación y loader
+// ============================================
+function esc(valor) {
+    return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Reemplazo de window.confirm(). Uso: if (!await confirmar({ mensaje: '...' })) return;
+function confirmar({ titulo = '¿Estás seguro?', mensaje = '', confirmarTexto = 'Confirmar', cancelarTexto = 'Cancelar', peligro = false } = {}) {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay confirm-overlay';
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-modal', 'true');
+
+        const caja = document.createElement('div');
+        caja.className = 'confirm-box';
+
+        const icono = document.createElement('div');
+        icono.className = 'confirm-icon' + (peligro ? ' confirm-icon-danger' : '');
+        icono.textContent = peligro ? '!' : '?';
+
+        const h = document.createElement('h3');
+        h.textContent = titulo;
+        const p = document.createElement('p');
+        p.textContent = mensaje;
+
+        const acciones = document.createElement('div');
+        acciones.className = 'confirm-actions';
+        const btnCancelar = document.createElement('button');
+        btnCancelar.className = 'btn btn-secondary';
+        btnCancelar.textContent = cancelarTexto;
+        const btnOk = document.createElement('button');
+        btnOk.className = 'btn ' + (peligro ? 'btn-danger' : 'btn-primary');
+        btnOk.textContent = confirmarTexto;
+        acciones.append(btnCancelar, btnOk);
+
+        caja.append(icono, h, p, acciones);
+        overlay.appendChild(caja);
+
+        const cerrarCon = (valor) => {
+            document.removeEventListener('keydown', onKey);
+            overlay.remove();
+            resolve(valor);
+        };
+        const onKey = (e) => { if (e.key === 'Escape') cerrarCon(false); };
+        document.addEventListener('keydown', onKey);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrarCon(false); });
+        btnCancelar.onclick = () => cerrarCon(false);
+        btnOk.onclick = () => cerrarCon(true);
+
+        document.body.appendChild(overlay);
+        btnCancelar.focus();
+    });
+}
+
+// Pantalla de carga mientras se consultan datos
+function mostrarCargando(visible, texto = 'Cargando datos...') {
+    let el = document.getElementById('app-loader');
+    if (!visible) { if (el) el.remove(); return; }
+    if (el) return;
+    el = document.createElement('div');
+    el.id = 'app-loader';
+    el.className = 'app-loader';
+    el.innerHTML = '<div class="spinner"></div><div class="app-loader-text"></div>';
+    el.querySelector('.app-loader-text').textContent = texto;
+    document.body.appendChild(el);
+}
+
+// Traduce los errores de autenticación de Supabase
+function traducirErrorAuth(err) {
+    const msg = (err && err.message) || '';
+    if (/invalid login credentials/i.test(msg)) return 'Correo o contraseña incorrectos.';
+    if (/email not confirmed/i.test(msg)) return 'Debes confirmar tu correo antes de ingresar.';
+    if (/failed to fetch|network/i.test(msg)) return 'No se pudo conectar con el servidor. Revisa tu conexión a internet.';
+    if (/too many requests|rate limit/i.test(msg)) return 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
+    if (/supabaseClient|undefined|null/i.test(msg)) return 'No se pudo cargar el servicio de autenticación. Recarga la página.';
+    return msg || 'Correo o contraseña incorrectos.';
+}
+
 // Estado global
 let currentUser = null;
 let userProfile = null;
@@ -109,7 +284,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     setupEventListeners();
+    restaurarSesion();
 });
+
+// Si ya hay una sesión de Supabase activa, entra directo sin pedir login otra vez
+async function restaurarSesion() {
+    if (DEMO_MODE || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    try {
+        const { data } = await supabaseClient.auth.getSession();
+        if (!data || !data.session) return;
+        mostrarCargando(true, 'Restaurando sesión...');
+        currentUser = data.session.user;
+        await loadUserProfile();
+        if (!userProfile) throw new Error('Sin perfil');
+        await showMainScreen();
+    } catch (err) {
+        console.error('No se pudo restaurar la sesión:', err);
+        currentUser = null;
+        userProfile = null;
+    } finally {
+        mostrarCargando(false);
+    }
+}
 
 function isMobileDevice() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
@@ -119,6 +315,8 @@ function isMobileDevice() {
 function setupEventListeners() {
     document.getElementById('login-form').addEventListener('submit', handleLogin);
     document.getElementById('add-student-form').addEventListener('submit', handleAddStudent);
+    const buscador = document.getElementById('dashboard-search');
+    if (buscador) buscador.addEventListener('input', renderDashboardTable);
     
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => switchView(btn.dataset.view));
@@ -153,7 +351,7 @@ async function handleLogin(e) {
         }
         showMainScreen();
     } catch (err) {
-        errorDiv.textContent = err.message || 'Credenciales incorrectas';
+        errorDiv.textContent = traducirErrorAuth(err);
         errorDiv.style.display = 'block';
     } finally {
         btn.textContent = 'Iniciar Sesión';
@@ -206,7 +404,15 @@ async function showMainScreen() {
     document.getElementById('user-name').textContent = userProfile?.nombre_completo || currentUser.email;
     document.getElementById('user-role').textContent = userProfile?.rol === 'admin' ? 'Administrador' : 'Evaluador';
     
-    await loadData();
+    mostrarCargando(true);
+    try {
+        await loadData();
+    } catch (err) {
+        console.error(err);
+        toast.error('No se pudieron cargar los datos: ' + err.message);
+    } finally {
+        mostrarCargando(false);
+    }
     
     const nav = document.getElementById('main-nav');
     if (userProfile?.rol === 'evaluador') {
@@ -324,8 +530,8 @@ function renderUsuariosSync() {
                     <tbody>
                         ${allUsers.map(u => `
                             <tr>
-                                <td>${u.email}</td>
-                                <td>${u.nombre_completo}</td>
+                                <td>${esc(u.email)}</td>
+                                <td>${esc(u.nombre_completo)}</td>
                                 <td>
                                     <span class="status-badge ${u.rol === 'admin' ? 'status-admin' : 'status-eval'}">${u.rol === 'admin' ? 'Admin' : 'Evaluador'}</span>
                                 </td>
@@ -348,10 +554,14 @@ function renderUsuariosSync() {
 }
 
 async function cambiarRolUsuario(userId, nuevoRol) {
+    if (currentUser && userId === currentUser.id && nuevoRol !== 'admin') {
+        const ok = await confirmar({ titulo: 'Quitarte el rol de administrador', mensaje: 'Estás por quitarte tus propios permisos de administrador. Perderás acceso a esta sección. ¿Continuar?', confirmarTexto: 'Continuar', peligro: true });
+        if (!ok) { renderUsuariosSync(); return; }
+    }
     if (DEMO_MODE) {
         const user = allUsuarios.find(u => u.id === userId);
         if (user) user.rol = nuevoRol;
-        alert('Rol actualizado');
+        toast.success('Rol actualizado');
         return;
     }
     
@@ -366,10 +576,10 @@ async function cambiarRolUsuario(userId, nuevoRol) {
         const user = allUsuarios.find(u => u.id === userId);
         if (user) user.rol = nuevoRol;
         
-        alert('Rol actualizado exitosamente');
+        toast.success('Rol actualizado exitosamente');
         renderUsuariosSync();
     } catch (err) {
-        alert('Error al actualizar rol: ' + err.message);
+        toast.error('Error al actualizar rol: ' + err.message);
     }
 }
 
@@ -377,7 +587,12 @@ function renderDashboardTable() {
     const tbody = document.getElementById('dashboard-table-body');
     tbody.innerHTML = '';
     
-    estudiantes.forEach(est => {
+    const filtro = ((document.getElementById('dashboard-search') || {}).value || '').toLowerCase().trim();
+    const lista = filtro
+        ? estudiantes.filter(e => e.nombre_completo.toLowerCase().includes(filtro) || String(e.cedula).includes(filtro))
+        : estudiantes;
+    
+    lista.forEach(est => {
         const evasEst = evaluaciones.filter(e => e.estudiante_id === est.id && e.estado === 'completada');
         const asignados = asignaciones.filter(a => a.estudiante_id === est.id).length;
         const totalEvaluadores = Math.max(asignados, 1);
@@ -391,17 +606,20 @@ function renderDashboardTable() {
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${est.cedula}</td>
-            <td>${est.nombre_completo}</td>
+            <td>${esc(est.cedula)}</td>
+            <td>${esc(est.nombre_completo)}</td>
             <td>${evasEst.length}/${MAX_EVALUADORES_POR_ESTUDIANTE}</td>
             <td><strong style="color:${promedio > 0 ? '#2e7d32' : '#f57c00'}">${promedio.toFixed(2)}</strong></td>
-            <td style="font-size:0.85rem">${evaluadoresNombres || '-'}</td>
+            <td style="font-size:0.85rem">${esc(evaluadoresNombres) || '-'}</td>
             <td>
-                <button class="btn btn-danger btn-table-action" onclick="verDetalleEstudiante('${est.id}')">Ver Detalle</button>
+                <button class="btn btn-primary btn-table-action" onclick="verDetalleEstudiante('${est.id}')">Ver Detalle</button>
             </td>
         `;
         tbody.appendChild(tr);
     });
+    if (!tbody.children.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${filtro ? 'Ningún estudiante coincide con la búsqueda.' : 'Aún no hay estudiantes registrados.'}</td></tr>`;
+    }
 }
 
 // ============================================
@@ -412,8 +630,13 @@ function cerrarModal() {
     if (modal) modal.remove();
 }
 
+function verComentarioEval(evaluacionId) {
+    const eva = evaluaciones.find(e => e.id === evaluacionId);
+    verComentario(eva ? eva.comentario_global : '');
+}
+
 function verComentario(comentario) {
-    const texto = comentario.replace(/\\n/g, '\n');
+    const texto = esc(comentario || '');
     const existe = document.getElementById('modal-comentario');
     if (existe) existe.remove();
 
@@ -439,8 +662,8 @@ function verDetalleEstudiante(estudianteId) {
     
     const evasEst = evaluaciones.filter(e => e.estudiante_id === estudianteId);
     
-    let html = `<h3>${estudiante.nombre_completo}</h3>`;
-    html += `<p>Cédula: ${estudiante.cedula}</p>`;
+    let html = `<h3>${esc(estudiante.nombre_completo)}</h3>`;
+    html += `<p>Cédula: ${esc(estudiante.cedula)}</p>`;
     html += `<p>Evaluaciones: ${evasEst.length}/${MAX_EVALUADORES_POR_ESTUDIANTE}</p>`;
     html += `<br>`;
     
@@ -464,12 +687,12 @@ function verDetalleEstudiante(estudianteId) {
             const tieneComentario = eva.comentario_global && eva.comentario_global.trim().length > 0;
             html += `
                 <tr>
-                    <td>${ev ? ev.nombre_completo : 'Desconocido'}</td>
+                    <td>${ev ? esc(ev.nombre_completo) : 'Desconocido'}</td>
                     <td><strong>${eva.nota_individual ? eva.nota_individual.toFixed(2) : '-'}</strong></td>
                     <td><span class="badge ${eva.estado === 'completada' ? 'badge-success' : 'badge-warning'}">${eva.estado === 'completada' ? 'Completada' : 'Borrador'}</span></td>
                     <td>
                         ${tieneComentario 
-                            ? `<button class="btn btn-primary btn-table-action" onclick="verComentario('${eva.comentario_global.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">Ver Comentario</button>` 
+                            ? `<button class="btn btn-primary btn-table-action" onclick="verComentarioEval('${eva.id}')">Ver Comentario</button>` 
                             : '<span style="color:#999; font-size:0.8rem;">Sin comentario</span>'}
                     </td>
                     <td>
@@ -491,7 +714,7 @@ function verDetalleEstudiante(estudianteId) {
             <ul style="margin:0.5rem 0 0 1.2rem;padding:0;">`;
         pendientes.forEach(a => {
             const ev = evaluadores.find(u => u.id === a.evaluador_id);
-            html += `<li style="margin-bottom:0.3rem;color:#333;">${ev ? ev.nombre_completo : 'Desconocido'} <span class="badge badge-warning" style="font-size:0.7rem;">Pendiente</span></li>`;
+            html += `<li style="margin-bottom:0.3rem;color:#333;">${ev ? esc(ev.nombre_completo) : 'Desconocido'} <span class="badge badge-warning" style="font-size:0.7rem;">Pendiente</span></li>`;
         });
         html += `</ul></div>`;
     }
@@ -522,22 +745,27 @@ function verDetalleEstudiante(estudianteId) {
     document.body.appendChild(modal);
 }
 
-function eliminarEvaluacion(evaluacionId) {
-    if (!confirm('¿Estás seguro de eliminar esta evaluación?')) return;
+async function eliminarEvaluacion(evaluacionId) {
+    if (!await confirmar({ titulo: 'Eliminar evaluación', mensaje: 'Esta acción no se puede deshacer. ¿Deseas eliminar esta evaluación?', confirmarTexto: 'Eliminar', peligro: true })) return;
     
     if (DEMO_MODE) {
         evaluaciones = evaluaciones.filter(e => e.id !== evaluacionId);
         cerrarModal();
-        alert('Evaluación eliminada');
+        toast.success('Evaluación eliminada');
         updateDashboard();
         return;
     }
     
-    supabaseClient.from('evaluaciones').delete().eq('id', evaluacionId).then(() => {
+    try {
+        const { error } = await supabaseClient.from('evaluaciones').delete().eq('id', evaluacionId);
+        if (error) throw error;
         cerrarModal();
-        alert('Evaluación eliminada');
-        loadCursoData().then(() => updateDashboard());
-    });
+        toast.success('Evaluación eliminada');
+        await loadCursoData();
+        updateDashboard();
+    } catch (err) {
+        toast.error('Error al eliminar la evaluación: ' + err.message);
+    }
 }
 
 // ============================================
@@ -557,12 +785,12 @@ async function handleAddStudent(e) {
         document.getElementById('new-correo').value = '';
         renderStudentsTable();
         updateDashboard();
-        alert('Estudiante agregado');
+        toast.success('Estudiante agregado');
         return;
     }
     
     if (!cursoActual) {
-        alert('No hay curso activo');
+        toast.warning('No hay curso activo');
         return;
     }
     
@@ -574,7 +802,7 @@ async function handleAddStudent(e) {
         .insert(dataInsert);
     
     if (error) {
-        alert('Error: ' + error.message);
+        toast.error('Error: ' + error.message);
     } else {
         document.getElementById('new-cedula').value = '';
         document.getElementById('new-nombre').value = '';
@@ -592,17 +820,20 @@ function renderStudentsTable() {
     estudiantes.forEach(est => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${est.cedula}</td>
-            <td>${est.nombre_completo}</td>
-            <td>${est.correo || '<span style="color:#999">-</span>'}</td>
+            <td>${esc(est.cedula)}</td>
+            <td>${esc(est.nombre_completo)}</td>
+            <td>${est.correo ? esc(est.correo) : '<span style="color:#999">-</span>'}</td>
             <td><button class="btn btn-danger btn-table-action" onclick="deleteStudent('${est.id}')">Eliminar Todo</button></td>
         `;
         tbody.appendChild(tr);
     });
+    if (!tbody.children.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Aún no hay estudiantes registrados.</td></tr>';
+    }
 }
 
 async function deleteStudent(id) {
-    if (!confirm('¿Estás seguro de eliminar este estudiante por completo? Se borrarán también TODAS sus asignaciones y evaluaciones.')) return;
+    if (!await confirmar({ titulo: 'Eliminar estudiante', mensaje: 'Se borrarán también TODAS sus asignaciones y evaluaciones. Esta acción no se puede deshacer.', confirmarTexto: 'Eliminar todo', peligro: true })) return;
     
     if (DEMO_MODE) {
         estudiantes = estudiantes.filter(e => e.id !== id);
@@ -610,7 +841,7 @@ async function deleteStudent(id) {
         asignaciones = asignaciones.filter(e => e.estudiante_id !== id);
         renderStudentsTable();
         updateDashboard();
-        alert('Estudiante eliminado.');
+        toast.success('Estudiante eliminado.');
         return;
     }
     
@@ -621,12 +852,12 @@ async function deleteStudent(id) {
         const { error } = await supabaseClient.from('estudiantes').delete().eq('id', id);
         if (error) throw error;
         
-        alert('Estudiante y todos sus registros eliminados correctamente.');
+        toast.success('Estudiante y todos sus registros eliminados correctamente.');
         await loadCursoData();
         renderStudentsTable();
         updateDashboard();
     } catch (err) {
-        alert('Error al eliminar: ' + err.message);
+        toast.error('Error al eliminar: ' + err.message);
     }
 }
 
@@ -639,13 +870,18 @@ function showEvalList() {
     renderEvalTable();
 }
 
+function showEvalFormById(estudianteId) {
+    const est = estudiantes.find(e => e.id === estudianteId);
+    if (est) showEvalForm(est);
+}
+
 function showEvalForm(estudiante) {
     selectedStudent = estudiante;
     evalValues = {};
     
     document.getElementById('eval-list-view').style.display = 'none';
     document.getElementById('eval-form-view').style.display = 'block';
-    document.getElementById('eval-student-info').innerHTML = `<strong>${estudiante.nombre_completo}</strong>`;
+    document.getElementById('eval-student-info').innerHTML = `<strong>${esc(estudiante.nombre_completo)}</strong>`;
     document.getElementById('comentario-global').value = '';
     
     const evaExistente = evaluaciones.find(e => 
@@ -680,13 +916,16 @@ function renderEvalTable() {
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="white-space:normal">${est.nombre_completo}</td>
+            <td style="white-space:normal">${esc(est.nombre_completo)}</td>
             <td><span class="badge ${completada ? 'badge-success' : 'badge-warning'}">${completada ? 'Completada' : 'Pendiente'}</span></td>
             <td><strong>${completada ? eva.nota_individual.toFixed(2) : '-'}</strong></td>
-            <td><button class="btn btn-primary btn-table-action" onclick='showEvalForm(${JSON.stringify(est)})'>${completada ? 'Ver/Editar' : 'Evaluar'}</button></td>
+            <td><button class="btn btn-primary btn-table-action" onclick="showEvalFormById('${est.id}')">${completada ? 'Ver/Editar' : 'Evaluar'}</button></td>
         `;
         tbody.appendChild(tr);
     });
+    if (!tbody.children.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No tienes estudiantes asignados todavía.</td></tr>';
+    }
 }
 
 function renderCriterios() {
@@ -848,7 +1087,7 @@ async function saveEvaluacion(estado) {
             evaluaciones.push(evalData);
         }
         
-        alert('Evaluación guardada exitosamente');
+        toast.success('Evaluación guardada exitosamente');
         showEvalList();
         return;
     }
@@ -878,10 +1117,10 @@ async function saveEvaluacion(estado) {
         }
         
         await loadCursoData();
-        alert('Evaluación guardada exitosamente');
+        toast.success('Evaluación guardada exitosamente');
         showEvalList();
     } catch (err) {
-        alert('Error al guardar: ' + err.message);
+        toast.error('Error al guardar: ' + err.message);
     }
 }
 
@@ -926,7 +1165,7 @@ function renderAsignaciones() {
                         ${estudiantes.map(e => {
                             const count = getAsignacionesDeEstudiante(e.id).length;
                             const lleno = count >= MAX_EVALUADORES_POR_ESTUDIANTE;
-                            return `<option value="${e.id}" ${lleno ? 'disabled' : ''}>${e.nombre_completo} - ${e.cedula} (${count}/${MAX_EVALUADORES_POR_ESTUDIANTE}${lleno ? ' - completo' : ''})</option>`;
+                            return `<option value="${e.id}" ${lleno ? 'disabled' : ''}>${esc(e.nombre_completo)} - ${esc(e.cedula)} (${count}/${MAX_EVALUADORES_POR_ESTUDIANTE}${lleno ? ' - completo' : ''})</option>`;
                         }).join('')}
                     </select>
                 </div>
@@ -934,7 +1173,7 @@ function renderAsignaciones() {
                     <label>Seleccionar Evaluador:</label>
                     <select id="manual-evaluador">
                         <option value="">-- Elija un evaluador --</option>
-                        ${evaluadores.map(e => `<option value="${e.id}">${e.nombre_completo}</option>`).join('')}
+                        ${evaluadores.map(e => `<option value="${e.id}">${esc(e.nombre_completo)}</option>`).join('')}
                     </select>
                 </div>
                 <div>
@@ -1009,7 +1248,7 @@ function renderAsignacionesRows() {
                 const evaCompletada = evaluaciones.some(e => e.estudiante_id === est.id && e.evaluador_id === ev.id && e.estado === 'completada');
                 return `
                     <span class="evaluator-tag">
-                        ${ev.nombre_completo}
+                        ${esc(ev.nombre_completo)}
                         <span class="badge ${evaCompletada ? 'badge-success' : 'badge-warning'}" style="font-size:0.7rem;">${evaCompletada ? 'Evaluado' : 'Pendiente'}</span>
                         <button onclick="desasignarEvaluador('${ev.id}', '${est.id}')"
                             ${evaCompletada ? 'disabled title="No se puede quitar porque ya tiene nota"' : 'title="Quitar asignación"'}
@@ -1023,7 +1262,7 @@ function renderAsignacionesRows() {
         html += `
             <tr style="border-bottom: 1px solid #dee2e6;">
                 <td style="padding: 0.75rem 1rem; vertical-align:top;">
-                    ${est.nombre_completo}<br><span style="color:#888; font-size:0.8rem;">CC ${est.cedula}</span>
+                    ${esc(est.nombre_completo)}<br><span style="color:#888; font-size:0.8rem;">CC ${esc(est.cedula)}</span>
                 </td>
                 <td style="padding: 0.75rem 1rem; vertical-align:top;">${formadoresHtml}</td>
                 <td style="padding: 0.75rem 1rem; text-align:center; vertical-align:top;">
@@ -1041,30 +1280,30 @@ async function asignarManual() {
     const evId = document.getElementById('manual-evaluador').value;
     
     if(!estId || !evId) {
-        alert('Por favor seleccione tanto el estudiante como el evaluador.');
+        toast.warning('Por favor seleccione tanto el estudiante como el evaluador.');
         return;
     }
     
     const existe = asignaciones.find(a => a.estudiante_id === estId && a.evaluador_id === evId);
     if(existe) {
-        alert('Este estudiante ya está asignado a ese evaluador.');
+        toast.warning('Este estudiante ya está asignado a ese evaluador.');
         return;
     }
     
     const asignadosActuales = getAsignacionesDeEstudiante(estId).length;
     if (asignadosActuales >= MAX_EVALUADORES_POR_ESTUDIANTE) {
         const est = estudiantes.find(e => e.id === estId);
-        alert(`${est ? est.nombre_completo : 'Este estudiante'} ya tiene el máximo de ${MAX_EVALUADORES_POR_ESTUDIANTE} formadores asignados. Quite una asignación existente antes de agregar otra.`);
+        toast.warning(`${est ? est.nombre_completo : 'Este estudiante'} ya tiene el máximo de ${MAX_EVALUADORES_POR_ESTUDIANTE} formadores asignados. Quite una asignación existente antes de agregar otra.`);
         return;
     }
     
     await asignarEvaluador(evId, estId);
-    alert('¡Asignación guardada con éxito!');
+    toast.success('¡Asignación guardada con éxito!');
 }
 
 async function asignarEvaluador(evaluadorId, estudianteId) {
     if (getAsignacionesDeEstudiante(estudianteId).length >= MAX_EVALUADORES_POR_ESTUDIANTE) {
-        alert(`Este estudiante ya tiene el máximo de ${MAX_EVALUADORES_POR_ESTUDIANTE} formadores asignados.`);
+        toast.warning(`Este estudiante ya tiene el máximo de ${MAX_EVALUADORES_POR_ESTUDIANTE} formadores asignados.`);
         return;
     }
     
@@ -1089,12 +1328,12 @@ async function asignarEvaluador(evaluadorId, estudianteId) {
         await loadCursoData();
         renderAsignaciones();
     } catch (err) {
-        alert('Error al asignar: ' + err.message);
+        toast.error('Error al asignar: ' + err.message);
     }
 }
 
 async function desasignarEvaluador(evaluadorId, estudianteId) {
-    if (!confirm('¿Seguro que deseas quitar la asignación de este evaluador?')) return;
+    if (!await confirmar({ titulo: 'Quitar asignación', mensaje: '¿Seguro que deseas quitar la asignación de este evaluador?', confirmarTexto: 'Quitar', peligro: true })) return;
     
     if (DEMO_MODE) {
         asignaciones = asignaciones.filter(a => !(a.evaluador_id === evaluadorId && a.estudiante_id === estudianteId));
@@ -1110,7 +1349,7 @@ async function desasignarEvaluador(evaluadorId, estudianteId) {
         await loadCursoData();
         renderAsignaciones();
     } catch (err) {
-        alert('Error al desasignar: ' + err.message);
+        toast.error('Error al desasignar: ' + err.message);
     }
 }
 
@@ -1133,13 +1372,13 @@ function importarAsignacionesExcel(input) {
             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
             
             if (rows.length < 2) {
-                alert('El archivo está vacío o no tiene datos válidos.');
+                toast.warning('El archivo está vacío o no tiene datos válidos.');
                 return;
             }
             
             procesarArchivoAsignaciones(rows);
         } catch (err) {
-            alert('Error al leer el archivo: ' + err.message);
+            toast.error('Error al leer el archivo: ' + err.message);
         }
     };
     reader.readAsArrayBuffer(file);
@@ -1191,7 +1430,7 @@ function procesarArchivoAsignaciones(rows) {
     }
     
     if (importPreviewData.length === 0) {
-        alert('No se encontraron registros válidos en el archivo.');
+        toast.warning('No se encontraron registros válidos en el archivo.');
         return;
     }
     
@@ -1241,11 +1480,11 @@ function renderPreviewImportacion() {
                         return `
                             <tr class="${rowClass}">
                                 <td>${i + 1}</td>
-                                <td>${r.cedula}</td>
-                                <td>${r.nombre}</td>
-                                <td>${r.correo || '<span style="color:#999">-</span>'}</td>
-                                <td>${r.ev1 ? r.ev1.nombre_completo : '<em style="color:#c62828">' + r.formador1 + '</em>'}</td>
-                                <td>${r.ev2 ? r.ev2.nombre_completo : (r.formador2 ? '<em style="color:#c62828">' + r.formador2 + '</em>' : '-')}</td>
+                                <td>${esc(r.cedula)}</td>
+                                <td>${esc(r.nombre)}</td>
+                                <td>${r.correo ? esc(r.correo) : '<span style="color:#999">-</span>'}</td>
+                                <td>${r.ev1 ? esc(r.ev1.nombre_completo) : '<em style="color:#c62828">' + esc(r.formador1) + '</em>'}</td>
+                                <td>${r.ev2 ? esc(r.ev2.nombre_completo) : (r.formador2 ? '<em style="color:#c62828">' + esc(r.formador2) + '</em>' : '-')}</td>
                                 <td>${statusHtml}</td>
                             </tr>`;
                     }).join('')}
@@ -1332,7 +1571,7 @@ async function ejecutarImportacion() {
     
     renderAsignaciones();
     
-    alert(`Importación completada:\n• ${creados} estudiantes creados\n• ${asignacionesReemplazadas} asignaciones reemplazadas\n• ${asignacionesNuevas} asignaciones nuevas`);
+    toast.success(`Importación completada:\n• ${creados} estudiantes creados\n• ${asignacionesReemplazadas} asignaciones reemplazadas\n• ${asignacionesNuevas} asignaciones nuevas`);
     
     importPreviewData = [];
 }
@@ -1362,13 +1601,13 @@ const COLORES = {
 function exportarExcel() {
     if (DEMO_MODE) {
         exportarMatrizGeneralDemo();
-        alert('Archivo Excel exportado (datos demo)');
+        toast.success('Archivo Excel exportado (datos demo)');
         return;
     }
     
     exportarMatrizGeneral();
     exportarFichasIndividuales();
-    alert('Archivos Excel exportados exitosamente');
+    toast.success('Archivos Excel exportados exitosamente');
 }
 
 async function exportarMatrizGeneralDemo() {
@@ -1738,7 +1977,7 @@ async function exportarRespuestasCrudas() {
     const evaluadoresUnicos = [...new Set(evaluaciones.filter(e => e.estado === 'completada').map(e => e.evaluador_id))];
     
     if (evaluadoresUnicos.length === 0) {
-        alert('No hay evaluaciones completadas para exportar');
+        toast.warning('No hay evaluaciones completadas para exportar');
         return;
     }
     
@@ -1903,7 +2142,7 @@ async function exportarRespuestasCrudas() {
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, 'Respuestas Formadores Fondo Progresa 2026.xlsx');
-    alert('Archivo de respuestas crudas exportado exitosamente');
+    toast.success('Archivo de respuestas crudas exportado exitosamente');
 }
 
 // ============================================
@@ -1930,7 +2169,7 @@ async function exportarPendientes() {
     });
     
     if (conPendientes.length === 0) {
-        alert('No hay estudiantes con formadores pendientes. Todos han sido evaluados.');
+        toast.warning('No hay estudiantes con formadores pendientes. Todos han sido evaluados.');
         return;
     }
     
@@ -2036,7 +2275,7 @@ async function exportarPendientes() {
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, 'Formadores Pendientes Fondo Progresa 2026.xlsx');
-    alert(`Archivo exportado: ${conPendientes.length} estudiante(s) con formadores pendientes`);
+    toast.success(`Archivo exportado: ${conPendientes.length} estudiante(s) con formadores pendientes`);
 }
 
 // ============================================
@@ -2196,5 +2435,5 @@ async function exportarExcelConCorreos() {
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(blob, 'Ficha General de Calificación 2026 - Con Correos.xlsx');
-    alert('Archivo exportado exitosamente');
+    toast.success('Archivo exportado exitosamente');
 }
