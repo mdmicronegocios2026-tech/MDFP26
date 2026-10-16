@@ -474,7 +474,7 @@ async function loadData() {
     updateDashboard();
 }
 
-async function loadCursoData() {
+async function loadCursoData({ comprobarErrores = false } = {}) {
     if (DEMO_MODE) return;
     
     const [estRes, evalRes, allUsersRes, asigRes, evaRes] = await Promise.all([
@@ -485,6 +485,11 @@ async function loadCursoData() {
         supabaseClient.from('evaluaciones').select('*').eq('curso_id', cursoActual.id)
     ]);
     
+    if (comprobarErrores) {
+        const fallo = [estRes, evalRes, allUsersRes, asigRes, evaRes].find(res => res.error);
+        if (fallo) throw fallo.error;
+    }
+
     estudiantes = estRes.data || [];
     evaluadores = evalRes.data || [];
     allUsuarios = allUsersRes.data || [];
@@ -1058,69 +1063,93 @@ function updateNotaCalculada() {
     document.getElementById('nota-calculada').textContent = nota.toFixed(2);
 }
 
+let guardandoEvaluacion = false;
+
 async function saveEvaluacion(estado) {
-    if (!selectedStudent) return;
+    if (!selectedStudent || guardandoEvaluacion) return;
+    guardandoEvaluacion = true;
+    const botones = [...document.querySelectorAll('#eval-form-view .form-actions button')];
+    const estadosBotones = botones.map(boton => boton.disabled);
+    botones.forEach(boton => { boton.disabled = true; });
+
+    try {
     
-    if (DEMO_MODE) {
-        const existingIndex = evaluaciones.findIndex(e => 
-            e.estudiante_id === selectedStudent.id && 
-            e.evaluador_id === currentUser.id
-        );
+        if (DEMO_MODE) {
+            const existingIndex = evaluaciones.findIndex(e => 
+                e.estudiante_id === selectedStudent.id && 
+                e.evaluador_id === currentUser.id
+            );
         
-        const evalData = {
-            id: existingIndex >= 0 ? evaluaciones[existingIndex].id : String(evaluaciones.length + 1),
+            const evalData = {
+                id: existingIndex >= 0 ? evaluaciones[existingIndex].id : String(evaluaciones.length + 1),
+                estudiante_id: selectedStudent.id,
+                evaluador_id: currentUser.id,
+                curso_id: cursoActual.id,
+                comentario_global: document.getElementById('comentario-global').value,
+                estado,
+                nota_individual: parseFloat(document.getElementById('nota-calculada').textContent)
+            };
+        
+            CRITERIOS.forEach(c => {
+                evalData[`${c.key}_puntaje`] = evalValues[c.key] || null;
+            });
+        
+            if (existingIndex >= 0) {
+                evaluaciones[existingIndex] = evalData;
+            } else {
+                evaluaciones.push(evalData);
+            }
+        
+            toast.success('Evaluación guardada exitosamente');
+            showEvalList();
+            return;
+        }
+    
+        const data = {
             estudiante_id: selectedStudent.id,
             evaluador_id: currentUser.id,
             curso_id: cursoActual.id,
             comentario_global: document.getElementById('comentario-global').value,
-            estado,
-            nota_individual: parseFloat(document.getElementById('nota-calculada').textContent)
+            estado
         };
-        
+    
         CRITERIOS.forEach(c => {
-            evalData[`${c.key}_puntaje`] = evalValues[c.key] || null;
+            data[`${c.key}_puntaje`] = evalValues[c.key] || null;
         });
-        
-        if (existingIndex >= 0) {
-            evaluaciones[existingIndex] = evalData;
-        } else {
-            evaluaciones.push(evalData);
+    
+        const evaExistente = evaluaciones.find(e => 
+            e.estudiante_id === selectedStudent.id && 
+            e.evaluador_id === currentUser.id
+        );
+    
+        const operacion = evaExistente
+            ? supabaseClient.from('evaluaciones').update(data).eq('id', evaExistente.id)
+            : supabaseClient.from('evaluaciones').insert(data);
+        const { data: guardada, error } = await operacion.select('*').single();
+        if (error) throw error;
+        if (!guardada || !guardada.id) {
+            throw new Error('No se pudo confirmar el registro guardado.');
         }
-        
-        toast.success('Evaluación guardada exitosamente');
-        showEvalList();
-        return;
-    }
-    
-    const data = {
-        estudiante_id: selectedStudent.id,
-        evaluador_id: currentUser.id,
-        curso_id: cursoActual.id,
-        comentario_global: document.getElementById('comentario-global').value,
-        estado
-    };
-    
-    CRITERIOS.forEach(c => {
-        data[`${c.key}_puntaje`] = evalValues[c.key] || null;
-    });
-    
-    const evaExistente = evaluaciones.find(e => 
-        e.estudiante_id === selectedStudent.id && 
-        e.evaluador_id === currentUser.id
-    );
-    
-    try {
-        if (evaExistente) {
-            await supabaseClient.from('evaluaciones').update(data).eq('id', evaExistente.id);
-        } else {
-            await supabaseClient.from('evaluaciones').insert(data);
+
+        // Conservar la identidad confirmada aunque falle la recarga, para que
+        // un reintento actualice la misma evaluación en lugar de insertar otra.
+        const indice = evaluaciones.findIndex(e => e.id === guardada.id);
+        if (indice >= 0) evaluaciones[indice] = guardada;
+        else evaluaciones.push(guardada);
+
+        try {
+            await loadCursoData({ comprobarErrores: true });
+        } catch (err) {
+            toast.warning('La evaluación se guardó, pero no se pudo actualizar la lista. Puedes recargar la página para consultar los datos actualizados.');
+            return;
         }
-        
-        await loadCursoData();
         toast.success('Evaluación guardada exitosamente');
         showEvalList();
     } catch (err) {
-        toast.error('Error al guardar: ' + err.message);
+        toast.error('No se pudo confirmar el guardado. Tus cambios siguen en el formulario; intenta guardar nuevamente. Detalle: ' + (err?.message || 'Error de conexión o del servicio.'));
+    } finally {
+        guardandoEvaluacion = false;
+        botones.forEach((boton, indice) => { boton.disabled = estadosBotones[indice]; });
     }
 }
 

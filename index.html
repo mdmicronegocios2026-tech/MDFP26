@@ -10,8 +10,6 @@
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="documentos.css">
-    <link rel="stylesheet" href="branding.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
@@ -50,11 +48,7 @@
     <div id="main-screen" style="display:none">
         <!-- HEADER -->
         <header class="main-header">
-            <h1 id="header-program-title">Fondo Progresa 2026</h1>
-            <div id="evaluator-branding" class="institutional-branding" aria-label="Instituciones del programa Fondo Progresa" hidden>
-                <span class="brand-asset brand-uniminuto"><img src="assets/logos/uniminuto.png" alt="UNIMINUTO · Cundinamarca y Boyacá" width="1558" height="514"></span>
-                <span class="brand-asset brand-progresa"><img src="assets/logos/fondo-progresa-instituciones.png" alt="Fondo Progresa · Alcaldía de Zipaquirá · Secretaría de Desarrollo Económico y Turismo" width="1280" height="199"></span>
-            </div>
+            <h1>Fondo Progresa 2026</h1>
             <div class="user-info">
                 <span id="user-name"></span>
                 <span id="user-role" class="role-badge"></span>
@@ -68,7 +62,6 @@
             <button class="nav-btn" data-view="evaluar">Evaluar</button>
             <button class="nav-btn" data-view="estudiantes">Estudiantes</button>
             <button class="nav-btn" data-view="asignaciones">Asignaciones</button>
-            <button class="nav-btn" data-view="documentos">Documentos</button>
             <button class="nav-btn" data-view="exportar">Exportar</button>
             <button class="nav-btn" data-view="usuarios">Usuarios</button>
         </nav>
@@ -139,15 +132,9 @@
                 </div>
                 <div id="eval-form-view" style="display:none">
                     <button class="btn-back" onclick="showEvalList()">← Volver a la lista</button>
-                    <div class="eval-workspace">
                     <div class="eval-form">
                         <h2>Evaluación Plan de Negocios</h2>
                         <div class="student-info" id="eval-student-info"></div>
-                        <div class="docs-eval-actions" aria-label="Documentos de la entrega">
-                            <button id="docs-eval-plan" class="btn btn-secondary" aria-haspopup="dialog" aria-controls="docs-admin-modal" disabled>Ver plan de negocio</button>
-                            <span id="docs-eval-status" role="status" aria-live="polite"></span>
-                            <button id="docs-eval-retry" class="btn btn-secondary" hidden>Reintentar consulta</button>
-                        </div>
                         <div id="criterios-container"></div>
                         <div class="criterion-card">
                             <div class="criterion-header">
@@ -166,16 +153,8 @@
                             <button class="btn btn-primary" onclick="saveEvaluacion('completada')">Enviar Evaluación</button>
                         </div>
                     </div>
-                    <div id="docs-viewer-home" hidden>
-                        <aside id="docs-viewer" class="docs-viewer" aria-label="Documentos del participante">
-                            <div id="docs-viewer-content" role="region" aria-label="Contenido del plan de negocio" aria-live="polite"></div>
-                        </aside>
-                    </div>
-                    </div>
                 </div>
             </section>
-
-            <section id="view-documentos" class="view"></section>
 
             <!-- ESTUDIANTES -->
             <section id="view-estudiantes" class="view">
@@ -252,22 +231,9 @@
         </main>
     </div>
 
-    <div id="docs-admin-modal" class="docs-admin-modal" role="dialog" aria-modal="true" aria-labelledby="docs-viewer-title" hidden>
-        <header class="docs-modal-header">
-            <h3 id="docs-viewer-title">Documentos</h3>
-            <div class="docs-modal-actions" role="group" aria-label="Acciones del documento">
-                <button id="docs-download-plan" class="btn btn-secondary" hidden>Descargar PDF</button>
-                <button id="docs-download-excel" class="btn btn-secondary" hidden>Descargar Excel</button>
-                <button id="docs-admin-close" class="btn btn-secondary">Volver a calificar</button>
-            </div>
-        </header>
-        <div id="docs-modal-body"></div>
-    </div>
     <script src="config.js"></script>
     <!-- Modo demo: pon DEMO_MODE = true en config.js y descomenta la siguiente línea -->
     <!-- <script src="demo-data.js"></script> -->
     <script src="app.js"></script>
-    <script src="documentos-core.js"></script>
-    <script src="documentos.js"></script>
 </body>
 </html>
