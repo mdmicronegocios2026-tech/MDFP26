@@ -10,8 +10,8 @@ const DEMO_MODE = false;
 // depende de las políticas RLS (Row Level Security) configuradas en Supabase.
 var supabaseClient; // Nombre distinto a window.supabase para evitar colisión
 if (!DEMO_MODE) {
-    const SUPABASE_URL = 'https://henboqdysxkslmejfzjv.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_5Xmex0MxZM2szmP2k0ofxw_GV7RXZyE';
+    const SUPABASE_URL = 'https://wosudqaluijtmvneiehi.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_1Q5OAgHZTo0iPty3Zl6YOg_z0bDTKuH';
     if (window.supabase) {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     } else {
